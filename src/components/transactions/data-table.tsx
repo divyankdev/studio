@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { addDays } from 'date-fns';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -38,6 +40,10 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({})
+  const [date, setDate] = React.useState<any>({
+    from: addDays(new Date(), -30),
+    to: new Date(),
+  });
 
   const table = useReactTable({
     data,
@@ -58,9 +64,17 @@ export function DataTable<TData, TValue>({
     },
   });
 
+   React.useEffect(() => {
+    if (date?.from && date?.to) {
+      table
+        .getColumn('date')
+        ?.setFilterValue([date.from.toISOString(), date.to.toISOString()]);
+    }
+  }, [date, table]);
+
   return (
-    <div>
-        <div className="flex items-center py-4">
+    <div className="space-y-4">
+        <div className="flex items-center gap-4">
         <Input
           placeholder="Filter descriptions..."
           value={(table.getColumn("description")?.getFilterValue() as string) ?? ""}
@@ -69,6 +83,7 @@ export function DataTable<TData, TValue>({
           }
           className="max-w-sm"
         />
+        <DatePickerWithRange date={date} setDate={setDate} />
       </div>
       <div className="rounded-md border">
         <Table>

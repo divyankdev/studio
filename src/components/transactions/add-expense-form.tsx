@@ -30,12 +30,13 @@ import {
 import { CalendarIcon, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { categories } from '@/lib/data';
+import { categories, accounts } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { suggestCategoryAction } from '@/lib/actions';
 import React from 'react';
-import type { Expense } from '@/lib/definitions';
+import type { Transaction } from '@/lib/definitions';
 import { Checkbox } from '../ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
 const formSchema = z
   .object({
@@ -47,41 +48,47 @@ const formSchema = z
     }),
     date: z.date(),
     category: z.string().min(1, { message: 'Please select a category.' }),
+    accountId: z.string().min(1, { message: 'Please select an account.' }),
+    type: z.enum(['expense', 'income']),
     isRecurring: z.boolean().default(false),
     frequency: z.string().optional(),
+    endDate: z.date().optional(),
   })
   .refine(
     (data) => {
       if (data.isRecurring) {
-        return !!data.frequency;
+        return !!data.frequency && !!data.endDate;
       }
       return true;
     },
     {
-      message: 'Frequency is required for recurring transactions.',
+      message: 'Frequency and End Date are required for recurring transactions.',
       path: ['frequency'],
     }
   );
 
-type AddExpenseFormProps = {
-  expense?: Expense;
+type AddTransactionFormProps = {
+  transaction?: Transaction;
   onFinished?: () => void;
 };
 
-export function AddExpenseForm({ expense, onFinished }: AddExpenseFormProps) {
+export function AddTransactionForm({ transaction, onFinished }: AddTransactionFormProps) {
   const { toast } = useToast();
   const [isSuggesting, setIsSuggesting] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      description: expense?.description ?? '',
-      amount: expense?.amount ?? 0,
-      date: expense?.date ? new Date(expense.date) : new Date(),
+      description: transaction?.description ?? '',
+      amount: transaction?.amount ?? 0,
+      date: transaction?.date ? new Date(transaction.date) : new Date(),
       category:
-        categories.find((c) => c.name === expense?.category)?.id ?? '',
+        categories.find((c) => c.name === transaction?.category)?.id ?? '',
+      accountId: transaction?.accountId ?? '',
+      type: transaction?.type ?? 'expense',
       isRecurring: false,
       frequency: '',
+      endDate: undefined,
     },
   });
 
@@ -138,15 +145,45 @@ export function AddExpenseForm({ expense, onFinished }: AddExpenseFormProps) {
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
     toast({
-      title: expense ? 'Expense Updated!' : 'Expense Added!',
-      description: `Saved "${values.description}" to your expenses.`,
+      title: transaction ? 'Transaction Updated!' : 'Transaction Added!',
+      description: `Saved "${values.description}" to your transactions.`,
     });
     onFinished?.();
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Transaction Type</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="expense" />
+                    </FormControl>
+                    <FormLabel className="font-normal">Expense</FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="income" />
+                    </FormControl>
+                    <FormLabel className="font-normal">Income</FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="description"
@@ -173,12 +210,39 @@ export function AddExpenseForm({ expense, onFinished }: AddExpenseFormProps) {
             </FormItem>
           )}
         />
+         <FormField
+          control={form.control}
+          name="accountId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Account</FormLabel>
+               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an account" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        <div className="flex items-center gap-2">
+                          <acc.icon className="h-4 w-4" />
+                          {acc.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Date of Expense</FormLabel>
+              <FormLabel>Date of Transaction</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -282,36 +346,76 @@ export function AddExpenseForm({ expense, onFinished }: AddExpenseFormProps) {
         />
 
         {isRecurring && (
-          <FormField
-            control={form.control}
-            name="frequency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Frequency</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <>
+            <FormField
+              control={form.control}
+              name="frequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frequency</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>End Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP')
+                          ) : (
+                            <span>Pick an end date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
         )}
 
         <Button type="submit" className="w-full">
-          {expense ? 'Save Changes' : 'Add Expense'}
+          {transaction ? 'Save Changes' : 'Add Transaction'}
         </Button>
       </form>
     </Form>

@@ -1,10 +1,7 @@
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardHeader,
-} from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -22,49 +19,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
-
-const recurring = [
-  {
-    name: 'Netflix Subscription',
-    category: 'Entertainment',
-    amount: 15.99,
-    frequency: 'Monthly',
-    nextDate: '2024-08-01',
-  },
-  {
-    name: 'Gym Membership',
-    category: 'Health',
-    amount: 40.0,
-    frequency: 'Monthly',
-    nextDate: '2024-08-05',
-  },
-  {
-    name: 'Internet Bill',
-    category: 'Housing',
-    amount: 65.0,
-    frequency: 'Monthly',
-    nextDate: '2024-08-10',
-  },
-  {
-    name: 'Music Streaming',
-    category: 'Entertainment',
-    amount: 9.99,
-    frequency: 'Monthly',
-    nextDate: '2024-08-15',
-  },
-];
+import { recurring, accounts } from '@/lib/data';
+import { cn } from '@/lib/utils';
 
 export default function RecurringPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
 
   // This is a placeholder for an expense object to pass to the edit dialog
-  const mockExpenseForEdit = {
+  const mockTransactionForEdit = {
     id: 'rec-1',
     description: 'Netflix Subscription',
     amount: 15.99,
     category: 'Entertainment',
     date: new Date().toISOString(),
+    type: 'expense' as const,
+    accountId: 'acc-3',
   };
 
   return (
@@ -91,8 +61,10 @@ export default function RecurringPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Account</TableHead>
               <TableHead>Frequency</TableHead>
-              <TableHead>Next Due Date</TableHead>
+              <TableHead>Next Due</TableHead>
+              <TableHead>End Date</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
@@ -100,46 +72,55 @@ export default function RecurringPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recurring.map((item) => (
-              <TableRow key={item.name}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{item.category}</Badge>
-                </TableCell>
-                <TableCell>{item.frequency}</TableCell>
-                <TableCell>
-                  {new Date(item.nextDate).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-right">
-                  ${item.amount.toFixed(2)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <AddTransactionDialog
-                    expense={mockExpenseForEdit}
-                    open={editDialogOpen}
-                    onOpenChange={setEditDialogOpen}
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setEditDialogOpen(true)}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>Pause</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </AddTransactionDialog>
-                </TableCell>
-              </TableRow>
-            ))}
+            {recurring.map((item) => {
+              const account = accounts.find(acc => acc.id === item.accountId);
+              return (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{item.category}</Badge>
+                  </TableCell>
+                   <TableCell>{account?.name || 'N/A'}</TableCell>
+                  <TableCell>{item.frequency}</TableCell>
+                  <TableCell>
+                    {new Date(item.nextDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {item.endDate ? new Date(item.endDate).toLocaleDateString() : 'N/A'}
+                  </TableCell>
+                  <TableCell className={cn("text-right font-medium", item.type === 'income' ? 'text-green-500' : 'text-destructive')}>
+                    {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AddTransactionDialog
+                      transaction={mockTransactionForEdit}
+                      open={editDialogOpen}
+                      onOpenChange={setEditDialogOpen}
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() => setEditDialogOpen(true)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>Pause</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </AddTransactionDialog>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>

@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Dialog,
@@ -8,18 +7,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { AddExpenseForm } from './add-expense-form';
-import type { Expense } from '@/lib/definitions';
+import { AddTransactionForm } from './add-expense-form';
+import type { Transaction } from '@/lib/definitions';
 
 type AddTransactionDialogProps = {
-  expense?: Expense;
+  transaction?: Transaction;
   children: React.ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 export function AddTransactionDialog({
-  expense,
+  transaction,
   children,
   open,
   onOpenChange,
@@ -31,17 +30,17 @@ export function AddTransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{expense ? 'Edit Expense' : 'Add a New Expense'}</DialogTitle>
+          <DialogTitle>{transaction ? 'Edit Transaction' : 'Add a New Transaction'}</DialogTitle>
           <DialogDescription>
-            {expense
-              ? "Update the details of your expense below."
-              : "Fill in the details of your expense below. Use the magic wand to get an AI-powered category suggestion!"}
+            {transaction
+              ? "Update the details of your transaction below."
+              : "Fill in the details of your transaction below. Use the magic wand to get an AI-powered category suggestion!"}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <AddExpenseForm expense={expense} onFinished={handleFinished} />
+          <AddTransactionForm transaction={transaction} onFinished={handleFinished} />
         </div>
       </DialogContent>
     </Dialog>

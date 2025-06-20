@@ -11,23 +11,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Expense } from '@/lib/definitions';
+import { Transaction } from '@/lib/definitions';
 import { AddTransactionDialog } from './add-transaction-dialog';
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
 }
 
-export function DataTableRowActions<TData extends Expense>({
+export function DataTableRowActions<TData extends Transaction>({
   row,
 }: DataTableRowActionsProps<TData>) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const expense = row.original;
+  const transaction = row.original;
 
   return (
     <>
       <AddTransactionDialog
-        expense={expense}
+        transaction={transaction}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       >
