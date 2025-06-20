@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 export type User = {
   id: string;
   name: string;
@@ -17,4 +19,11 @@ export type Expense = {
   amount: number;
   category: string;
   date: string; // ISO 8601 format
+};
+
+export type Account = {
+  name: string;
+  type: "Checking" | "Savings" | "Credit Card" | "Wallet";
+  balance: number;
+  icon: LucideIcon;
 };

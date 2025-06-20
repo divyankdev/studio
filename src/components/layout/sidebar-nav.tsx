@@ -14,7 +14,6 @@ import {
   Goal,
   BarChart2,
   Repeat,
-  Settings,
   Wallet,
 } from 'lucide-react';
 
@@ -26,7 +25,6 @@ const navItems = [
   { href: '/analytics', icon: BarChart2, label: 'Analytics' },
   { href: '/budget', icon: Goal, label: 'Budget' },
   { href: '/recurring', icon: Repeat, label: 'Recurring' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function SidebarNav() {
@@ -38,7 +36,8 @@ export function SidebarNav() {
         <SidebarMenuItem key={item.href}>
           <Link href={item.href}>
             <SidebarMenuButton
-              isActive={pathname === item.href}
+              size="lg"
+              isActive={pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <item.icon />

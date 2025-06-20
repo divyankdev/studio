@@ -1,15 +1,26 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Landmark, CreditCard, Wallet } from "lucide-react";
-
-const accounts = [
-  { name: "Checking Account", type: "Checking", balance: 5420.78, icon: Landmark },
-  { name: "Savings Account", type: "Savings", balance: 12850.21, icon: Landmark },
-  { name: "Venture Card", type: "Credit Card", balance: -750.43, icon: CreditCard },
-  { name: "Digital Wallet", type: "Wallet", balance: 345.67, icon: Wallet },
-]
+'use client';
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { accounts } from '@/lib/data';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AddAccountDialog } from '@/components/accounts/add-account-dialog';
 
 export default function AccountsPage() {
+  const [addDialogOpen, setAddDialogOpen] = React.useState(false);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -19,25 +30,59 @@ export default function AccountsPage() {
             Manage your connected bank accounts and cards.
           </p>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Account
-        </Button>
+        <AddAccountDialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <Button onClick={() => setAddDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Account
+          </Button>
+        </AddAccountDialog>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {accounts.map((account) => (
           <Card key={account.name}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-medium">{account.name}</CardTitle>
-              <account.icon className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-base font-medium">
+                {account.name}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <account.icon className="h-5 w-5 text-muted-foreground" />
+                <AddAccountDialog
+                  account={account}
+                  open={editDialogOpen}
+                  onOpenChange={setEditDialogOpen}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => setEditDialogOpen(true)}>
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive">
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </AddAccountDialog>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-2xl font-bold">
+                $
+                {account.balance.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
               <p className="text-xs text-muted-foreground">{account.type}</p>
             </CardContent>
           </Card>
         ))}
       </div>
     </div>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import type { User, Category, Expense } from './definitions';
+import type { User, Category, Expense, Account } from './definitions';
 import {
   ShoppingBag,
   HeartPulse,
@@ -9,11 +9,21 @@ import {
   GraduationCap,
   Plane,
   Gift,
+  Landmark,
+  CreditCard,
+  Wallet,
 } from 'lucide-react';
 
 export const users: User[] = [
   { id: '1', name: 'Alex Johnson', email: 'alex@example.com', avatarUrl: 'https://placehold.co/100x100.png' },
 ];
+
+export const accounts: Account[] = [
+  { name: "Checking Account", type: "Checking", balance: 5420.78, icon: Landmark },
+  { name: "Savings Account", type: "Savings", balance: 12850.21, icon: Landmark },
+  { name: "Venture Card", type: "Credit Card", balance: -750.43, icon: CreditCard },
+  { name: "Digital Wallet", type: "Wallet", balance: 345.67, icon: Wallet },
+]
 
 export const categories: Category[] = [
   { id: 'cat-1', name: 'Shopping', icon: ShoppingBag },

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -33,31 +34,58 @@ import { categories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { suggestCategoryAction } from '@/lib/actions';
 import React from 'react';
+import type { Expense } from '@/lib/definitions';
+import { Checkbox } from '../ui/checkbox';
 
-const formSchema = z.object({
-  description: z.string().min(2, {
-    message: 'Description must be at least 2 characters.',
-  }),
-  amount: z.coerce.number().positive({
-    message: 'Amount must be a positive number.',
-  }),
-  date: z.date(),
-  category: z.string().min(1, { message: 'Please select a category.' }),
-});
+const formSchema = z
+  .object({
+    description: z.string().min(2, {
+      message: 'Description must be at least 2 characters.',
+    }),
+    amount: z.coerce.number().positive({
+      message: 'Amount must be a positive number.',
+    }),
+    date: z.date(),
+    category: z.string().min(1, { message: 'Please select a category.' }),
+    isRecurring: z.boolean().default(false),
+    frequency: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.isRecurring) {
+        return !!data.frequency;
+      }
+      return true;
+    },
+    {
+      message: 'Frequency is required for recurring transactions.',
+      path: ['frequency'],
+    }
+  );
 
-export function AddExpenseForm() {
+type AddExpenseFormProps = {
+  expense?: Expense;
+  onFinished?: () => void;
+};
+
+export function AddExpenseForm({ expense, onFinished }: AddExpenseFormProps) {
   const { toast } = useToast();
   const [isSuggesting, setIsSuggesting] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      description: '',
-      amount: 0,
-      date: new Date(),
-      category: '',
+      description: expense?.description ?? '',
+      amount: expense?.amount ?? 0,
+      date: expense?.date ? new Date(expense.date) : new Date(),
+      category:
+        categories.find((c) => c.name === expense?.category)?.id ?? '',
+      isRecurring: false,
+      frequency: '',
     },
   });
+
+  const isRecurring = form.watch('isRecurring');
 
   const handleSuggestCategory = async () => {
     const description = form.getValues('description');
@@ -73,7 +101,6 @@ export function AddExpenseForm() {
     try {
       const result = await suggestCategoryAction(description);
       if (result.category) {
-        // Find a matching category from the predefined list
         const matchedCategory = categories.find(
           (c) => c.name.toLowerCase() === result.category.toLowerCase()
         );
@@ -84,7 +111,7 @@ export function AddExpenseForm() {
             description: `We've set the category to "${matchedCategory.name}".`,
           });
         } else {
-           toast({
+          toast({
             variant: 'destructive',
             title: 'Suggestion not found',
             description: `AI suggested "${result.category}", but it's not in your categories list.`,
@@ -111,14 +138,15 @@ export function AddExpenseForm() {
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
     toast({
-      title: 'Expense Added!',
-      description: `Added "${values.description}" to your expenses.`,
+      title: expense ? 'Expense Updated!' : 'Expense Added!',
+      description: `Saved "${values.description}" to your expenses.`,
     });
+    onFinished?.();
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="description"
@@ -195,8 +223,8 @@ export function AddExpenseForm() {
               <div className="flex gap-2">
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
                   value={field.value}
+                  defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -222,15 +250,68 @@ export function AddExpenseForm() {
                   disabled={isSuggesting}
                   aria-label="Suggest Category"
                 >
-                  <Sparkles className={cn("h-4 w-4", isSuggesting && "animate-spin")} />
+                  <Sparkles
+                    className={cn('h-4 w-4', isSuggesting && 'animate-spin')}
+                  />
                 </Button>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="isRecurring"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>Is this a recurring transaction?</FormLabel>
+                <FormDescription>
+                  If checked, this will be added to your recurring payments.
+                </FormDescription>
+              </div>
+            </FormItem>
+          )}
+        />
+
+        {isRecurring && (
+          <FormField
+            control={form.control}
+            name="frequency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Frequency</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <Button type="submit" className="w-full">
-          Add Expense
+          {expense ? 'Save Changes' : 'Add Expense'}
         </Button>
       </form>
     </Form>
