@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/card';
 import { DollarSign, ArrowUp, ArrowDown, Repeat } from 'lucide-react';
 import { Overview } from '@/components/dashboard/overview';
-import { RecentTransactions } from '@/components/dashboard/recent-transactions';
+import { RecentTransactions } from '@/components/dashboard/recent-sales';
 import { transactions } from '@/lib/data';
 import { UpcomingRecurring } from '@/components/dashboard/upcoming-recurring';
 
