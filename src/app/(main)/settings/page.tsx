@@ -1,5 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
   return (
@@ -10,21 +14,56 @@ export default function SettingsPage() {
           Manage your account and application settings.
         </p>
       </div>
-      <Card className="flex flex-col items-center justify-center text-center p-8 min-h-[400px]">
-        <CardHeader>
-          <div className="mx-auto bg-primary/10 p-4 rounded-full mb-4">
-            <Settings className="h-12 w-12 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">Coming Soon!</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            The settings page is under construction.
-            <br />
-            You'll soon be able to customize your experience here.
-          </p>
-        </CardContent>
-      </Card>
+
+      <div className="grid gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile</CardTitle>
+            <CardDescription>Update your personal information.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" defaultValue="Alex" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input id="lastName" defaultValue="Johnson" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" defaultValue="alex@example.com" />
+            </div>
+            <Button>Save Changes</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>Manage how you receive notifications.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="email-notifications">Email Notifications</Label>
+                <p className="text-sm text-muted-foreground">Receive updates and alerts in your inbox.</p>
+              </div>
+              <Switch id="email-notifications" defaultChecked />
+            </div>
+             <Separator />
+            <div className="flex items-center justify-between">
+               <div>
+                <Label htmlFor="push-notifications">Push Notifications</Label>
+                <p className="text-sm text-muted-foreground">Get real-time alerts on your devices.</p>
+              </div>
+              <Switch id="push-notifications" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

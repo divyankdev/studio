@@ -12,6 +12,7 @@ import { Logo } from '@/components/icons';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import Link from 'next/link';
+import { MobileNav } from '@/components/layout/mobile-nav';
 
 export default function MainLayout({
   children,
@@ -38,7 +39,8 @@ export default function MainLayout({
       </Sidebar>
       <SidebarInset>
         <Header />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6">{children}</main>
+        <MobileNav />
       </SidebarInset>
     </SidebarProvider>
   );

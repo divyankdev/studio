@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -5,15 +6,21 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { categories } from '@/lib/data';
+import { PlusCircle } from 'lucide-react';
 
 export default function CategoriesPage() {
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Categories</h1>
-        <p className="text-muted-foreground">
-          Manage your expense categories.
-        </p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Categories</h1>
+          <p className="text-muted-foreground">
+            Manage your expense categories.
+          </p>
+        </div>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Category
+        </Button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {categories.map((category) => (
