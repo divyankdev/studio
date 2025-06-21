@@ -36,12 +36,13 @@ export function UpcomingRecurring({ accountId, accounts }: { accountId: string, 
   return (
     <div className="space-y-4">
       {upcoming.map((item, index) => {
+        if (!item) return null;
         const account = accounts.find(acc => acc.id === item.accountId);
         const nextDate = new Date(item.nextDate);
         const isNextDateValid = !isNaN(nextDate.getTime());
         
         return (
-          <div className="flex items-center" key={item.id || index}>
+          <div className="flex items-center" key={item.id ? `${item.id}-${index}`: index}>
             <div className="space-y-1">
               <p className="text-sm font-medium leading-none">{item.name}</p>
               <p className="text-sm text-muted-foreground">{account?.name}</p>
