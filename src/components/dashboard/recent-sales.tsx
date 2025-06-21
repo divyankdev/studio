@@ -32,7 +32,7 @@ export function RecentTransactions({ transactions, accounts, accountId }: { tran
           <div className="flex items-center" key={transaction.id || index}>
             <Avatar className="h-9 w-9">
               <AvatarImage src={user.avatarUrl} alt="Avatar" data-ai-hint="person avatar" />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback>{(user.name || 'A').charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="ml-4 space-y-1">
               <p className="text-sm font-medium leading-none">
@@ -60,3 +60,5 @@ export function RecentTransactions({ transactions, accounts, accountId }: { tran
     </div>
   );
 }
+
+    

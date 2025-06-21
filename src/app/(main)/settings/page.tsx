@@ -109,8 +109,8 @@ export default function SettingsPage() {
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
     values: {
-      firstName: user?.name.split(' ')[0] || '',
-      lastName: user?.name.split(' ')[1] || '',
+      firstName: user?.name?.split(' ')[0] || '',
+      lastName: user?.name?.split(' ')[1] || '',
       email: user?.email || '',
     },
     resetOptions: {
@@ -130,8 +130,8 @@ export default function SettingsPage() {
   React.useEffect(() => {
     if (user) {
       profileForm.reset({
-        firstName: user.name.split(' ')[0],
-        lastName: user.name.split(' ')[1],
+        firstName: user.name?.split(' ')[0] || '',
+        lastName: user.name?.split(' ')[1] || '',
         email: user.email,
       });
       setAvatarPreview(user.avatarUrl);
@@ -224,8 +224,8 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                  <div className="flex items-center gap-4">
                     <Avatar className="h-20 w-20">
-                        <AvatarImage src={avatarPreview} alt={user.name} data-ai-hint="person avatar" />
-                        <AvatarFallback>{user.name.slice(0,2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={avatarPreview} alt={user.name || ''} data-ai-hint="person avatar" />
+                        <AvatarFallback>{(user.name || 'A').slice(0,2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/*" />
                     <Button type="button" variant="outline" onClick={handleAvatarClick}>Change Picture</Button>
@@ -435,3 +435,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
