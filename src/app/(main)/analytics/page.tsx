@@ -373,7 +373,7 @@ export default function AnalyticsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={trendData}
-                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -437,12 +437,9 @@ export default function AnalyticsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      outerRadius={100}
+                      outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name} ${(percent * 100).toFixed(0)}%`
-                      }
                     >
                       {expensePieData.map((entry, index) => (
                         <Cell
@@ -477,12 +474,9 @@ export default function AnalyticsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      outerRadius={100}
+                      outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name} ${(percent * 100).toFixed(0)}%`
-                      }
                     >
                       {incomePieData.map((entry, index) => (
                         <Cell
