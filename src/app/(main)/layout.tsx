@@ -25,8 +25,8 @@ export default function MainLayout({
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader>
-          <Link href="/dashboard" className="flex items-center gap-2">
+        <SidebarHeader className="p-4">
+          <Link href="/dashboard" className="flex items-center gap-3">
             <Logo className="w-8 h-8 text-primary" />
             <span className="text-lg font-semibold">ExpenseZero</span>
           </Link>
