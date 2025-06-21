@@ -28,7 +28,13 @@ import {
   Legend,
 } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, ArrowDown, ArrowUp } from 'lucide-react';
+import {
+  DollarSign,
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { accounts, transactions } from '@/lib/data';
 import {
   Select,
@@ -37,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import {
   format,
   startOfYear,
@@ -45,6 +52,13 @@ import {
   getYear,
   startOfMonth,
   min,
+  endOfMonth,
+  endOfYear,
+  addMonths,
+  subMonths,
+  addYears,
+  subYears,
+  isAfter,
 } from 'date-fns';
 
 const COLORS = [
@@ -61,6 +75,34 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = React.useState<'month' | 'year' | 'all'>(
     'month'
   );
+  const [displayDate, setDisplayDate] = React.useState(new Date());
+
+  const handlePrev = () => {
+    if (period === 'month') {
+      setDisplayDate(subMonths(displayDate, 1));
+    } else if (period === 'year') {
+      setDisplayDate(subYears(displayDate, 1));
+    }
+  };
+
+  const handleNext = () => {
+    if (period === 'month') {
+      setDisplayDate(addMonths(displayDate, 1));
+    } else if (period === 'year') {
+      setDisplayDate(addYears(displayDate, 1));
+    }
+  };
+
+  const isFutureDisabled = React.useMemo(() => {
+    const now = new Date();
+    if (period === 'month') {
+      return isAfter(startOfMonth(displayDate), startOfMonth(now));
+    }
+    if (period === 'year') {
+      return isAfter(startOfYear(displayDate), startOfYear(now));
+    }
+    return false;
+  }, [displayDate, period]);
 
   const analyticsData = React.useMemo(() => {
     const accountFilteredTransactions =
@@ -68,24 +110,29 @@ export default function AnalyticsPage() {
         ? transactions
         : transactions.filter((t) => t.accountId === accountId);
 
-    const now = new Date();
     let startDate: Date;
-    let endDate: Date = now;
+    let endDate: Date;
     let trendInterval: 'day' | 'month' | 'year';
     let rangeDescription: string;
+    const now = new Date();
 
     if (period === 'month') {
-      startDate = startOfMonth(now);
+      startDate = startOfMonth(displayDate);
+      endDate = endOfMonth(displayDate);
+      if (isAfter(endDate, now)) endDate = now;
       trendInterval = 'day';
-      rangeDescription = `in ${format(now, 'MMMM yyyy')}`;
+      rangeDescription = `in ${format(displayDate, 'MMMM yyyy')}`;
     } else if (period === 'year') {
-      startDate = startOfYear(now);
+      startDate = startOfYear(displayDate);
+      endDate = endOfYear(displayDate);
+      if (isAfter(endDate, now)) endDate = now;
       trendInterval = 'month';
-      rangeDescription = `in ${format(now, 'yyyy')}`;
+      rangeDescription = `in ${format(displayDate, 'yyyy')}`;
     } else {
       // 'all'
       const allDates = transactions.map((t) => new Date(t.date));
       startDate = allDates.length > 0 ? min(allDates) : startOfYear(now);
+      endDate = now;
       trendInterval = 'year';
       rangeDescription = 'of all time';
     }
@@ -126,7 +173,7 @@ export default function AnalyticsPage() {
     let trendData: { name: string; expense: number; income: number }[] = [];
 
     if (trendInterval === 'day') {
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
+      const days = eachDayOfInterval({ start: startDate, end: endOfMonth(startDate) });
       trendData = days.map((day) => {
         const dayStr = format(day, 'yyyy-MM-dd');
         const dayExpenses = expenses
@@ -135,7 +182,11 @@ export default function AnalyticsPage() {
         const dayIncome = income
           .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
           .reduce((sum, t) => sum + t.amount, 0);
-        return { name: format(day, 'd'), expense: dayExpenses, income: dayIncome };
+        return {
+          name: format(day, 'd'),
+          expense: dayExpenses,
+          income: dayIncome,
+        };
       });
     } else if (trendInterval === 'month') {
       const months = eachMonthOfInterval({ start: startDate, end: endDate });
@@ -183,7 +234,7 @@ export default function AnalyticsPage() {
       trendData,
       rangeDescription,
     };
-  }, [period, accountId]);
+  }, [period, accountId, displayDate]);
 
   const {
     totalSpent,
@@ -195,11 +246,7 @@ export default function AnalyticsPage() {
   } = analyticsData;
 
   return (
-    <Tabs
-      defaultValue="month"
-      className="space-y-4"
-      onValueChange={(value) => setPeriod(value as 'month' | 'year' | 'all')}
-    >
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-4 justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
@@ -221,13 +268,38 @@ export default function AnalyticsPage() {
               ))}
             </SelectContent>
           </Select>
-          <TabsList>
-            <TabsTrigger value="month">This Month</TabsTrigger>
-            <TabsTrigger value="year">This Year</TabsTrigger>
-            <TabsTrigger value="all">All Time</TabsTrigger>
-          </TabsList>
+          <Tabs
+            value={period}
+            onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}
+          >
+            <TabsList>
+              <TabsTrigger value="month">Month</TabsTrigger>
+              <TabsTrigger value="year">Year</TabsTrigger>
+              <TabsTrigger value="all">All Time</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
+      {period !== 'all' && (
+        <div className="flex items-center justify-center gap-4">
+          <Button variant="outline" size="icon" onClick={handlePrev}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-lg font-semibold tabular-nums">
+            {period === 'month'
+              ? format(displayDate, 'MMMM yyyy')
+              : format(displayDate, 'yyyy')}
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleNext}
+            disabled={isFutureDisabled}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-6">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -414,6 +486,6 @@ export default function AnalyticsPage() {
           </Card>
         </div>
       </div>
-    </Tabs>
+    </div>
   );
 }
