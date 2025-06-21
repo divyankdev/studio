@@ -38,18 +38,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  subDays,
-  subMonths,
-  subYears,
   format,
   startOfYear,
-  endOfYear,
   eachDayOfInterval,
-  eachWeekOfInterval,
   eachMonthOfInterval,
-  startOfWeek,
-  endOfWeek,
   getYear,
+  startOfMonth,
+  min,
 } from 'date-fns';
 
 const COLORS = [
@@ -61,44 +56,44 @@ const COLORS = [
   '#4BC0C0',
 ];
 
-const availableYears = Array.from(new Set(transactions.map(t => getYear(new Date(t.date))))).sort((a,b) => b-a);
-
 export default function AnalyticsPage() {
   const [accountId, setAccountId] = React.useState('all');
-  const [period, setPeriod] = React.useState<'weekly' | 'monthly' | 'yearly'>(
-    'monthly'
+  const [period, setPeriod] = React.useState<'month' | 'year' | 'all'>(
+    'month'
   );
-  const [selectedYear, setSelectedYear] = React.useState<number>(availableYears[0] || new Date().getFullYear());
 
   const analyticsData = React.useMemo(() => {
-    const accountFilteredTransactions = accountId === 'all'
-      ? transactions
-      : transactions.filter((t) => t.accountId === accountId);
-    
-    const yearFilteredTransactions = accountFilteredTransactions.filter(t => getYear(new Date(t.date)) === selectedYear);
+    const accountFilteredTransactions =
+      accountId === 'all'
+        ? transactions
+        : transactions.filter((t) => t.accountId === accountId);
 
     const now = new Date();
-    const currentYear = getYear(now);
-    const effectiveEndDate = selectedYear === currentYear ? now : endOfYear(new Date(selectedYear, 11, 31));
-
     let startDate: Date;
-    let trendInterval: 'day' | 'week' | 'month';
+    let endDate: Date = now;
+    let trendInterval: 'day' | 'month' | 'year';
+    let rangeDescription: string;
 
-    if (period === 'weekly') {
-      startDate = startOfYear(new Date(selectedYear, 0, 1));
-      trendInterval = 'week';
-    } else if (period === 'monthly') {
-      startDate = startOfYear(new Date(selectedYear, 0, 1));
+    if (period === 'month') {
+      startDate = startOfMonth(now);
+      trendInterval = 'day';
+      rangeDescription = `in ${format(now, 'MMMM yyyy')}`;
+    } else if (period === 'year') {
+      startDate = startOfYear(now);
       trendInterval = 'month';
-    } else { // yearly
-      startDate = startOfYear(new Date(selectedYear, 0, 1));
-      trendInterval = 'month'; // Treat yearly as a monthly breakdown for the chart
+      rangeDescription = `in ${format(now, 'yyyy')}`;
+    } else {
+      // 'all'
+      const allDates = transactions.map((t) => new Date(t.date));
+      startDate = allDates.length > 0 ? min(allDates) : startOfYear(now);
+      trendInterval = 'year';
+      rangeDescription = 'of all time';
     }
 
-    const periodTransactions = yearFilteredTransactions.filter(
-      (t) => new Date(t.date) >= startDate && new Date(t.date) <= effectiveEndDate
+    const periodTransactions = accountFilteredTransactions.filter(
+      (t) => new Date(t.date) >= startDate && new Date(t.date) <= endDate
     );
-    
+
     const expenses = periodTransactions.filter((t) => t.type === 'expense');
     const income = periodTransactions.filter((t) => t.type === 'income');
 
@@ -129,36 +124,81 @@ export default function AnalyticsPage() {
     );
 
     let trendData: { name: string; expense: number; income: number }[] = [];
-    
-    if (trendInterval === 'week') {
-      const weeks = eachWeekOfInterval({ start: startDate, end: effectiveEndDate }, { weekStartsOn: 1 });
-       trendData = weeks.map((week, index) => {
-         const weekStart = week;
-         const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
-         const weekExpenses = expenses.filter(t => new Date(t.date) >= weekStart && new Date(t.date) <= weekEnd).reduce((sum, t) => sum + t.amount, 0);
-         const weekIncome = income.filter(t => new Date(t.date) >= weekStart && new Date(t.date) <= weekEnd).reduce((sum, t) => sum + t.amount, 0);
-         return { name: `W${index + 1}`, expense: weekExpenses, income: weekIncome };
-       });
+
+    if (trendInterval === 'day') {
+      const days = eachDayOfInterval({ start: startDate, end: endDate });
+      trendData = days.map((day) => {
+        const dayStr = format(day, 'yyyy-MM-dd');
+        const dayExpenses = expenses
+          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const dayIncome = income
+          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
+          .reduce((sum, t) => sum + t.amount, 0);
+        return { name: format(day, 'd'), expense: dayExpenses, income: dayIncome };
+      });
     } else if (trendInterval === 'month') {
-       const months = eachMonthOfInterval({ start: startDate, end: effectiveEndDate });
-       trendData = months.map(month => {
-         const monthName = format(month, 'MMM');
-         const monthExpenses = expenses.filter(t => format(new Date(t.date), 'yyyy-MM') === format(month, 'yyyy-MM')).reduce((sum, t) => sum + t.amount, 0);
-         const monthIncome = income.filter(t => format(new Date(t.date), 'yyyy-MM') === format(month, 'yyyy-MM')).reduce((sum, t) => sum + t.amount, 0);
-         return { name: monthName, expense: monthExpenses, income: monthIncome };
-       });
+      const months = eachMonthOfInterval({ start: startDate, end: endDate });
+      trendData = months.map((month) => {
+        const monthStr = format(month, 'yyyy-MM');
+        const monthExpenses = expenses
+          .filter((t) => format(new Date(t.date), 'yyyy-MM') === monthStr)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const monthIncome = income
+          .filter((t) => format(new Date(t.date), 'yyyy-MM') === monthStr)
+          .reduce((sum, t) => sum + t.amount, 0);
+        return {
+          name: format(month, 'MMM'),
+          expense: monthExpenses,
+          income: monthIncome,
+        };
+      });
+    } else if (trendInterval === 'year') {
+      const startYear = getYear(startDate);
+      const endYear = getYear(endDate);
+      const years = Array.from(
+        { length: endYear - startYear + 1 },
+        (_, i) => startYear + i
+      );
+      trendData = years.map((year) => {
+        const yearExpenses = expenses
+          .filter((t) => getYear(new Date(t.date)) === year)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const yearIncome = income
+          .filter((t) => getYear(new Date(t.date)) === year)
+          .reduce((sum, t) => sum + t.amount, 0);
+        return {
+          name: String(year),
+          expense: yearExpenses,
+          income: yearIncome,
+        };
+      });
     }
 
-    return { totalSpent, totalIncome, expensePieData, incomePieData, trendData };
-  }, [period, accountId, selectedYear]);
+    return {
+      totalSpent,
+      totalIncome,
+      expensePieData,
+      incomePieData,
+      trendData,
+      rangeDescription,
+    };
+  }, [period, accountId]);
 
-  const { totalSpent, totalIncome, expensePieData, incomePieData, trendData } = analyticsData;
+  const {
+    totalSpent,
+    totalIncome,
+    expensePieData,
+    incomePieData,
+    trendData,
+    rangeDescription,
+  } = analyticsData;
 
   return (
     <Tabs
-      defaultValue="monthly"
+      defaultValue="month"
       className="space-y-4"
-      onValueChange={(value) => setPeriod(value as 'weekly' | 'monthly' | 'yearly')}
+      onValueChange={(value) => setPeriod(value as 'month' | 'year' | 'all')}
     >
       <div className="flex flex-wrap gap-4 justify-between items-start">
         <div>
@@ -168,34 +208,24 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Accounts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Accounts</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Select Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map(year => (
-                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <TabsList>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="yearly">Yearly</TabsTrigger>
-            </TabsList>
+          <Select value={accountId} onValueChange={setAccountId}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TabsList>
+            <TabsTrigger value="month">This Month</TabsTrigger>
+            <TabsTrigger value="year">This Year</TabsTrigger>
+            <TabsTrigger value="all">All Time</TabsTrigger>
+          </TabsList>
         </div>
       </div>
 
@@ -207,51 +237,61 @@ export default function AnalyticsPage() {
               <ArrowDown className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">${totalSpent.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-destructive">
+                ${totalSpent.toFixed(2)}
+              </div>
               <p className="text-xs text-muted-foreground">
-                In {selectedYear}
-              </p>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-              <ArrowUp className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">${totalIncome.toFixed(2)}</div>
-               <p className="text-xs text-muted-foreground">
-                In {selectedYear}
+                Total spending {rangeDescription}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Net Flow
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
+              <ArrowUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">
+                ${totalIncome.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total income {rangeDescription}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net Flow</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${totalIncome - totalSpent >= 0 ? 'text-green-500' : 'text-destructive'}`}>${(totalIncome - totalSpent).toFixed(2)}</div>
-               <p className="text-xs text-muted-foreground">
-                Income vs. Expenses in {selectedYear}
+              <div
+                className={`text-2xl font-bold ${
+                  totalIncome - totalSpent >= 0
+                    ? 'text-green-500'
+                    : 'text-destructive'
+                }`}
+              >
+                ${(totalIncome - totalSpent).toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Income vs. Expenses {rangeDescription}
               </p>
             </CardContent>
           </Card>
         </div>
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
-           <Card>
+          <Card>
             <CardHeader>
               <CardTitle>Income vs. Expense Trend</CardTitle>
               <CardDescription>
-                Your financial flow over {period} view for {selectedYear}.
+                A comparison of your income and expenses {rangeDescription}.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={{}} className="h-[350px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                   <ComposedChart
+                  <ComposedChart
                     data={trendData}
                     margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
                   >
@@ -263,7 +303,10 @@ export default function AnalyticsPage() {
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                     />
-                    <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => `$${value}`} />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      tickFormatter={(value) => `$${value}`}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--background))',
@@ -271,7 +314,12 @@ export default function AnalyticsPage() {
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="expense" name="Expense" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="expense"
+                      name="Expense"
+                      fill="hsl(var(--destructive))"
+                      radius={[4, 4, 0, 0]}
+                    />
                     <Line
                       type="monotone"
                       dataKey="income"
@@ -290,7 +338,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle>Expense Breakdown</CardTitle>
               <CardDescription>
-                Spending by category in {selectedYear}.
+                Spending by category {rangeDescription}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -316,10 +364,10 @@ export default function AnalyticsPage() {
                         />
                       ))}
                     </Pie>
-                     <Tooltip
+                    <Tooltip
                       content={<ChartTooltipContent hideLabel nameKey="name" />}
                     />
-                     <Legend />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -329,7 +377,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle>Income Breakdown</CardTitle>
               <CardDescription>
-                Earnings by category in {selectedYear}.
+                Earnings by category {rangeDescription}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -351,7 +399,7 @@ export default function AnalyticsPage() {
                       {incomePieData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={COLORS.slice(2)[index % (COLORS.length-2)]}
+                          fill={COLORS.slice(2)[index % (COLORS.length - 2)]}
                         />
                       ))}
                     </Pie>
