@@ -26,10 +26,10 @@ export function RecentTransactions({ transactions, accounts, accountId }: { tran
 
   return (
     <div className="space-y-8">
-      {recentTransactions.map((transaction) => {
+      {recentTransactions.map((transaction, index) => {
         const account = accounts.find((acc) => acc.id === transaction.accountId);
         return (
-          <div className="flex items-center" key={transaction.id}>
+          <div className="flex items-center" key={transaction.id || index}>
             <Avatar className="h-9 w-9">
               <AvatarImage src={user.avatarUrl} alt="Avatar" data-ai-hint="person avatar" />
               <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
