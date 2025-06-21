@@ -119,7 +119,14 @@ export default function AnalyticsPage() {
     if (!transactions || transactions.length === 0) {
       return new Date();
     }
-    const dates = transactions.map((t) => new Date(t.date));
+    const dates = transactions
+      .map((t) => new Date(t.date))
+      .filter((d) => !isNaN(d.getTime()));
+      
+    if (dates.length === 0) {
+      return new Date();
+    }
+    
     return new Date(Math.max.apply(null, dates.map((d) => d.getTime())));
   }, [transactions]);
   
@@ -158,19 +165,25 @@ export default function AnalyticsPage() {
   }, [displayDate, period]);
 
   const analyticsData = React.useMemo(() => {
-    if (!transactions) return {
-      totalSpent: 0,
-      totalIncome: 0,
-      expensePieData: [],
-      incomePieData: [],
-      trendData: [],
-      rangeDescription: '',
-    };
+    if (!transactions) {
+      return {
+        totalSpent: 0,
+        totalIncome: 0,
+        expensePieData: [],
+        incomePieData: [],
+        trendData: [],
+        rangeDescription: '',
+      };
+    }
+
+    const validTransactions = transactions.filter(
+      (t) => t && t.date && !isNaN(new Date(t.date).getTime()) && t.type && typeof t.amount === 'number'
+    );
       
     const accountFilteredTransactions =
       accountId === 'all'
-        ? transactions
-        : transactions.filter((t) => t.accountId === accountId);
+        ? validTransactions
+        : validTransactions.filter((t) => t.accountId === accountId);
 
     let startDate: Date;
     let endDate: Date;
@@ -192,7 +205,7 @@ export default function AnalyticsPage() {
       rangeDescription = `in ${format(displayDate, 'yyyy')}`;
     } else {
       // 'all'
-      const allDates = transactions.map((t) => new Date(t.date));
+      const allDates = validTransactions.map((t) => new Date(t.date));
       startDate = allDates.length > 0 ? min(allDates) : startOfYear(now);
       endDate = now;
       trendInterval = 'year';
