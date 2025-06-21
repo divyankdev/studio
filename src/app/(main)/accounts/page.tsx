@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { PlusCircle, MoreHorizontal } from 'lucide-react';
 import { accounts } from '@/lib/data';
+import type { Account } from '@/lib/definitions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +21,9 @@ import { AddAccountDialog } from '@/components/accounts/add-account-dialog';
 
 export default function AccountsPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
-  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [editingAccount, setEditingAccount] = React.useState<Account | null>(
+    null
+  );
 
   return (
     <div>
@@ -46,28 +50,34 @@ export default function AccountsPage() {
               </CardTitle>
               <div className="flex items-center gap-2">
                 <account.icon className="h-5 w-5 text-muted-foreground" />
-                <AddAccountDialog
-                  account={account}
-                  open={editDialogOpen}
-                  onOpenChange={setEditDialogOpen}
-                >
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => setEditDialogOpen(true)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </AddAccountDialog>
+                <div onClick={(e) => e.preventDefault()}>
+                  <AddAccountDialog
+                    account={account}
+                    open={editingAccount?.id === account.id}
+                    onOpenChange={(isOpen) =>
+                      setEditingAccount(isOpen ? account : null)
+                    }
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => setEditingAccount(account)}
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive">
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </AddAccountDialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

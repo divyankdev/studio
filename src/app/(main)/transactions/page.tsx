@@ -9,10 +9,13 @@ import { transactions, accounts, categories } from '@/lib/data';
 import { PlusCircle } from 'lucide-react';
 import React from 'react';
 import { useGlobalFilter } from '@/context/global-filter-context';
+import { useSearchParams } from 'next/navigation';
 
 export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const { accountId } = useGlobalFilter();
+  const searchParams = useSearchParams();
+  const categoryFilter = searchParams.get('category');
 
   const filteredTransactions = React.useMemo(() => {
     if (accountId === 'all') {
@@ -41,6 +44,7 @@ export default function TransactionsPage() {
         data={filteredTransactions}
         accounts={accounts}
         categories={categories}
+        initialCategoryFilter={categoryFilter}
       />
     </div>
   );

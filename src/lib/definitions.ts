@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from "lucide-react";
 
 export type User = {
@@ -30,6 +31,13 @@ export type Account = {
   balance: number;
   icon: LucideIcon;
 };
+
+export type Budget = {
+  id: string;
+  category: string;
+  amount: number;
+  spent: number;
+}
 
 export type RecurringTransaction = {
   id: string;

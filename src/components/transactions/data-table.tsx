@@ -42,6 +42,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   accounts: Account[];
   categories: Category[];
+  initialCategoryFilter?: string | null;
 }
 
 export function DataTable<TData, TValue>({
@@ -49,10 +50,13 @@ export function DataTable<TData, TValue>({
   data,
   accounts,
   categories,
+  initialCategoryFilter,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    initialCategoryFilter
+      ? [{ id: 'category', value: initialCategoryFilter }]
+      : []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -76,16 +80,14 @@ export function DataTable<TData, TValue>({
   });
 
   React.useEffect(() => {
-    if (date?.from && date?.to) {
-      table
-        .getColumn('date')
-        ?.setFilterValue([date.from.toISOString(), date.to.toISOString()]);
+    if (date?.from) {
+      table.getColumn('date')?.setFilterValue([date.from, date.to]);
     } else {
-       table.getColumn('date')?.setFilterValue(undefined);
+      table.getColumn('date')?.setFilterValue(undefined);
     }
   }, [date, table]);
-  
-  const isFiltered = table.getState().columnFilters.length > 0 || !!date;
+
+  const isFiltered = table.getState().columnFilters.length > 0;
 
   return (
     <div className="space-y-4">
@@ -112,7 +114,7 @@ export function DataTable<TData, TValue>({
           }
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue />
+            <SelectValue placeholder="Filter by Account"/>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Accounts</SelectItem>
@@ -134,7 +136,7 @@ export function DataTable<TData, TValue>({
           }
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue />
+            <SelectValue placeholder="Filter by Category" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
@@ -154,7 +156,7 @@ export function DataTable<TData, TValue>({
           }
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue />
+            <SelectValue placeholder="Filter by Type"/>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>

@@ -9,12 +9,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { AddBudgetForm } from './add-budget-form';
-
-type Budget = {
-    category: string;
-    spent: number;
-    budget: number;
-}
+import type { Budget } from '@/lib/definitions';
 
 type AddBudgetDialogProps = {
   budget?: Budget;
