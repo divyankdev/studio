@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { categories } from '@/lib/data';
+import { accounts, categories, transactions } from '@/lib/data';
 import type { Category } from '@/lib/definitions';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { AddCategoryDialog } from '@/components/categories/add-category-dialog';
@@ -19,6 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Link from 'next/link';
 
 export default function CategoriesPage() {
@@ -26,6 +33,19 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(
     null
   );
+  const [accountId, setAccountId] = React.useState('all');
+
+  const categoryTransactionCounts = React.useMemo(() => {
+    const filteredTransactions = accountId === 'all'
+        ? transactions
+        : transactions.filter(t => t.accountId === accountId);
+    
+    return categories.map(category => {
+      const count = filteredTransactions.filter(t => t.category === category.name).length;
+      return { ...category, transactionCount: count };
+    });
+  }, [accountId]);
+
 
   return (
     <div>
@@ -36,16 +56,36 @@ export default function CategoriesPage() {
             Manage your expense categories.
           </p>
         </div>
-        <AddCategoryDialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Category
-          </Button>
-        </AddCategoryDialog>
+        <div className="flex items-center gap-4">
+           <div className="w-[200px]">
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Accounts</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    <div className="flex items-center gap-2">
+                      <account.icon className="h-4 w-4" />
+                      {account.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AddCategoryDialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Category
+            </Button>
+          </AddCategoryDialog>
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {categories.map((category) => (
+        {categoryTransactionCounts.map((category) => (
           <Link
-            href={`/transactions?category=${encodeURIComponent(category.name)}`}
+            href={`/transactions?category=${encodeURIComponent(category.name)}&accountId=${accountId}`}
             key={category.id}
             className="block"
           >
@@ -88,7 +128,7 @@ export default function CategoriesPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  32 transactions
+                  {category.transactionCount} transaction{category.transactionCount !== 1 ? 's' : ''}
                 </p>
               </CardContent>
             </Card>

@@ -9,8 +9,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarInset,
-  SidebarGroup,
-  SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
@@ -18,44 +16,12 @@ import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
 import Link from 'next/link';
 import { MobileNav } from '@/components/layout/mobile-nav';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { accounts } from '@/lib/data';
-import { Separator } from '@/components/ui/separator';
-import {
-  GlobalFilterProvider,
-  useGlobalFilter,
-} from '@/context/global-filter-context';
 
-function AccountFilter() {
-  const { accountId, setAccountId } = useGlobalFilter();
-
-  return (
-    <Select value={accountId} onValueChange={setAccountId}>
-      <SelectTrigger className="bg-sidebar-accent border-sidebar-border">
-        <SelectValue placeholder="All Accounts" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All Accounts</SelectItem>
-        {accounts.map((account) => (
-          <SelectItem key={account.id} value={account.id}>
-            <div className="flex items-center gap-2">
-              <account.icon className="h-4 w-4" />
-              {account.name}
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function LayoutWithContext({ children }: { children: React.ReactNode }) {
+export default function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <SidebarProvider>
       <Sidebar>
@@ -66,11 +32,6 @@ function LayoutWithContext({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Account Filter</SidebarGroupLabel>
-            <AccountFilter />
-          </SidebarGroup>
-          <Separator className="my-2" />
           <SidebarNav />
         </SidebarContent>
         <SidebarFooter>
@@ -85,17 +46,5 @@ function LayoutWithContext({ children }: { children: React.ReactNode }) {
         <MobileNav />
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <GlobalFilterProvider>
-      <LayoutWithContext>{children}</LayoutWithContext>
-    </GlobalFilterProvider>
   );
 }

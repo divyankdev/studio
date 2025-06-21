@@ -37,7 +37,8 @@ export const columns: ColumnDef<Transaction>[] = [
       return <div>{account ? account.name : 'N/A'}</div>;
     },
      filterFn: (row, id, value) => {
-      return value === row.getValue(id)
+      const account = accounts.find((a) => a.id === row.getValue(id));
+      return value === account?.name;
     },
   },
   {
@@ -69,13 +70,13 @@ export const columns: ColumnDef<Transaction>[] = [
     filterFn: (row, id, value) => {
       if (!value) return true;
       const date = new Date(row.getValue(id) as string);
-      const [from, to] = value as [string, string];
+      const [from, to] = value as [Date, Date];
       if (!from && !to) return true;
-      if (from && !to) return date >= new Date(from);
-      if (!from && to) return date <= new Date(to);
+      if (from && !to) return date >= from;
+      if (!from && to) return date <= to;
       const toDate = new Date(to);
       toDate.setDate(toDate.getDate() + 1); // include the end date
-      return date >= new Date(from) && date <= toDate;
+      return date >= from && date < toDate;
     },
   },
   {

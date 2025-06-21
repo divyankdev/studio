@@ -29,20 +29,27 @@ import {
 } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, ArrowDown, ArrowUp } from 'lucide-react';
-import { useGlobalFilter } from '@/context/global-filter-context';
-import { transactions } from '@/lib/data';
+import { accounts, transactions } from '@/lib/data';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   subDays,
   subMonths,
   subYears,
   format,
-  startOfMonth,
-  endOfMonth,
+  startOfYear,
+  endOfYear,
   eachDayOfInterval,
   eachWeekOfInterval,
   eachMonthOfInterval,
   startOfWeek,
   endOfWeek,
+  getYear,
 } from 'date-fns';
 
 const COLORS = [
@@ -54,43 +61,49 @@ const COLORS = [
   '#4BC0C0',
 ];
 
+const availableYears = Array.from(new Set(transactions.map(t => getYear(new Date(t.date))))).sort((a,b) => b-a);
+
 export default function AnalyticsPage() {
-  const { accountId } = useGlobalFilter();
+  const [accountId, setAccountId] = React.useState('all');
   const [period, setPeriod] = React.useState<'weekly' | 'monthly' | 'yearly'>(
     'monthly'
   );
-
-  const filteredTransactions = React.useMemo(() => {
-    if (accountId === 'all') {
-      return transactions;
-    }
-    return transactions.filter((t) => t.accountId === accountId);
-  }, [accountId]);
+  const [selectedYear, setSelectedYear] = React.useState<number>(availableYears[0] || new Date().getFullYear());
 
   const analyticsData = React.useMemo(() => {
+    const accountFilteredTransactions = accountId === 'all'
+      ? transactions
+      : transactions.filter((t) => t.accountId === accountId);
+    
+    const yearFilteredTransactions = accountFilteredTransactions.filter(t => getYear(new Date(t.date)) === selectedYear);
+
     const now = new Date();
+    const currentYear = getYear(now);
+    const effectiveEndDate = selectedYear === currentYear ? now : endOfYear(new Date(selectedYear, 11, 31));
+
     let startDate: Date;
+    let trendInterval: 'day' | 'week' | 'month';
+
     if (period === 'weekly') {
-      startDate = subDays(now, 6);
+      startDate = startOfYear(new Date(selectedYear, 0, 1));
+      trendInterval = 'week';
     } else if (period === 'monthly') {
-      startDate = subDays(now, 29);
-    } else {
-      startDate = subYears(now, 1);
-      startDate.setDate(1);
-      startDate.setMonth(0);
+      startDate = startOfYear(new Date(selectedYear, 0, 1));
+      trendInterval = 'month';
+    } else { // yearly
+      startDate = startOfYear(new Date(selectedYear, 0, 1));
+      trendInterval = 'month'; // Treat yearly as a monthly breakdown for the chart
     }
 
-    const periodTransactions = filteredTransactions.filter(
-      (t) => new Date(t.date) >= startDate && new Date(t.date) <= now
+    const periodTransactions = yearFilteredTransactions.filter(
+      (t) => new Date(t.date) >= startDate && new Date(t.date) <= effectiveEndDate
     );
-
+    
     const expenses = periodTransactions.filter((t) => t.type === 'expense');
     const income = periodTransactions.filter((t) => t.type === 'income');
 
     const totalSpent = expenses.reduce((sum, t) => sum + t.amount, 0);
     const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
-    const avgTransaction =
-      expenses.length > 0 ? totalSpent / expenses.length : 0;
 
     const expenseCategoryBreakdown = expenses.reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -116,30 +129,18 @@ export default function AnalyticsPage() {
     );
 
     let trendData: { name: string; expense: number; income: number }[] = [];
-
-    if (period === 'weekly') {
-      const days = eachDayOfInterval({ start: startDate, end: now });
-      trendData = days.map((day) => {
-        const dayStr = format(day, 'EEE');
-        const dayExpenses = expenses
-          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'))
-          .reduce((sum, t) => sum + t.amount, 0);
-        const dayIncome = income
-          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'))
-          .reduce((sum, t) => sum + t.amount, 0);
-        return { name: dayStr, expense: dayExpenses, income: dayIncome };
-      });
-    } else if (period === 'monthly') {
-      const weeks = eachWeekOfInterval({ start: startDate, end: now }, { weekStartsOn: 1 });
+    
+    if (trendInterval === 'week') {
+      const weeks = eachWeekOfInterval({ start: startDate, end: effectiveEndDate }, { weekStartsOn: 1 });
        trendData = weeks.map((week, index) => {
          const weekStart = week;
          const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
          const weekExpenses = expenses.filter(t => new Date(t.date) >= weekStart && new Date(t.date) <= weekEnd).reduce((sum, t) => sum + t.amount, 0);
          const weekIncome = income.filter(t => new Date(t.date) >= weekStart && new Date(t.date) <= weekEnd).reduce((sum, t) => sum + t.amount, 0);
-         return { name: `Week ${index + 1}`, expense: weekExpenses, income: weekIncome };
+         return { name: `W${index + 1}`, expense: weekExpenses, income: weekIncome };
        });
-    } else if (period === 'yearly') {
-       const months = eachMonthOfInterval({ start: startDate, end: now });
+    } else if (trendInterval === 'month') {
+       const months = eachMonthOfInterval({ start: startDate, end: effectiveEndDate });
        trendData = months.map(month => {
          const monthName = format(month, 'MMM');
          const monthExpenses = expenses.filter(t => format(new Date(t.date), 'yyyy-MM') === format(month, 'yyyy-MM')).reduce((sum, t) => sum + t.amount, 0);
@@ -148,10 +149,10 @@ export default function AnalyticsPage() {
        });
     }
 
-    return { totalSpent, totalIncome, avgTransaction, expensePieData, incomePieData, trendData };
-  }, [period, filteredTransactions]);
+    return { totalSpent, totalIncome, expensePieData, incomePieData, trendData };
+  }, [period, accountId, selectedYear]);
 
-  const { totalSpent, totalIncome, avgTransaction, expensePieData, incomePieData, trendData } = analyticsData;
+  const { totalSpent, totalIncome, expensePieData, incomePieData, trendData } = analyticsData;
 
   return (
     <Tabs
@@ -159,18 +160,43 @@ export default function AnalyticsPage() {
       className="space-y-4"
       onValueChange={(value) => setPeriod(value as 'weekly' | 'monthly' | 'yearly')}
     >
-      <div className="flex justify-between items-start">
+      <div className="flex flex-wrap gap-4 justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="text-muted-foreground">
             Get a detailed view of your finances.
           </p>
         </div>
-        <TabsList>
-          <TabsTrigger value="weekly">Weekly</TabsTrigger>
-          <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          <TabsTrigger value="yearly">Yearly</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-2">
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Accounts</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <TabsList>
+              <TabsTrigger value="weekly">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="yearly">Yearly</TabsTrigger>
+            </TabsList>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -183,7 +209,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="text-2xl font-bold text-destructive">${totalSpent.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">
-                In the last {period}
+                In {selectedYear}
               </p>
             </CardContent>
           </Card>
@@ -195,7 +221,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="text-2xl font-bold text-green-500">${totalIncome.toFixed(2)}</div>
                <p className="text-xs text-muted-foreground">
-                In the last {period}
+                In {selectedYear}
               </p>
             </CardContent>
           </Card>
@@ -209,7 +235,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className={`text-2xl font-bold ${totalIncome - totalSpent >= 0 ? 'text-green-500' : 'text-destructive'}`}>${(totalIncome - totalSpent).toFixed(2)}</div>
                <p className="text-xs text-muted-foreground">
-                Income vs. Expenses
+                Income vs. Expenses in {selectedYear}
               </p>
             </CardContent>
           </Card>
@@ -219,7 +245,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle>Income vs. Expense Trend</CardTitle>
               <CardDescription>
-                Your financial flow over the {period}.
+                Your financial flow over {period} view for {selectedYear}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -237,7 +263,7 @@ export default function AnalyticsPage() {
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                     />
-                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => `$${value}`} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--background))',
@@ -264,7 +290,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle>Expense Breakdown</CardTitle>
               <CardDescription>
-                Spending by category this {period}.
+                Spending by category in {selectedYear}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -290,7 +316,10 @@ export default function AnalyticsPage() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip content={<ChartTooltipContent hideLabel />} />
+                     <Tooltip
+                      content={<ChartTooltipContent hideLabel nameKey="name" />}
+                    />
+                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -300,7 +329,7 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle>Income Breakdown</CardTitle>
               <CardDescription>
-                Earnings by category this {period}.
+                Earnings by category in {selectedYear}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -326,7 +355,10 @@ export default function AnalyticsPage() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip content={<ChartTooltipContent hideLabel />} />
+                    <Tooltip
+                      content={<ChartTooltipContent hideLabel nameKey="name" />}
+                    />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </ChartContainer>

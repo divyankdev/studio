@@ -1,13 +1,22 @@
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { transactions, users, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 const user = users[0];
 
-export function RecentTransactions() {
-  const recentTransactions = transactions
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+export function RecentTransactions({ accountId }: { accountId: string }) {
+  
+  const recentTransactions = React.useMemo(() => {
+     const filtered = accountId === 'all'
+      ? transactions
+      : transactions.filter((t) => t.accountId === accountId);
+    
+    return filtered
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }, [accountId]);
 
   return (
     <div className="space-y-8">

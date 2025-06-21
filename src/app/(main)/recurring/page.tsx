@@ -19,15 +19,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
 import { recurring, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { useGlobalFilter } from '@/context/global-filter-context';
 
 export default function RecurringPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
-  const { accountId } = useGlobalFilter();
+  const [accountId, setAccountId] = React.useState('all');
 
   // This is a placeholder for an expense object to pass to the edit dialog
   const mockTransactionForEdit = {
@@ -56,14 +62,34 @@ export default function RecurringPage() {
             Manage your recurring bills and subscriptions.
           </p>
         </div>
-        <AddTransactionDialog
-          open={addDialogOpen}
-          onOpenChange={setAddDialogOpen}
-        >
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Recurring
-          </Button>
-        </AddTransactionDialog>
+        <div className="flex items-center gap-4">
+          <div className="w-[200px]">
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Accounts</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    <div className="flex items-center gap-2">
+                      <account.icon className="h-4 w-4" />
+                      {account.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AddTransactionDialog
+            open={addDialogOpen}
+            onOpenChange={setAddDialogOpen}
+          >
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Recurring
+            </Button>
+          </AddTransactionDialog>
+        </div>
       </div>
       <Card>
         <Table>

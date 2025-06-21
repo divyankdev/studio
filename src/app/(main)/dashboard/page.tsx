@@ -12,12 +12,18 @@ import {
 import { DollarSign, ArrowUp, ArrowDown, Repeat } from 'lucide-react';
 import { Overview } from '@/components/dashboard/overview';
 import { RecentTransactions } from '@/components/dashboard/recent-sales';
-import { transactions } from '@/lib/data';
+import { transactions, accounts } from '@/lib/data';
 import { UpcomingRecurring } from '@/components/dashboard/upcoming-recurring';
-import { useGlobalFilter } from '@/context/global-filter-context';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function DashboardPage() {
-  const { accountId } = useGlobalFilter();
+  const [accountId, setAccountId] = React.useState('all');
 
   const filteredTransactions = React.useMemo(() => {
     if (accountId === 'all') {
@@ -36,6 +42,27 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 space-y-4">
+       <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="w-[200px]">
+          <Select value={accountId} onValueChange={setAccountId}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  <div className="flex items-center gap-2">
+                    <account.icon className="h-4 w-4" />
+                    {account.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -95,7 +122,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentTransactions />
+            <RecentTransactions accountId={accountId} />
           </CardContent>
         </Card>
       </div>
@@ -111,7 +138,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UpcomingRecurring />
+            <UpcomingRecurring accountId={accountId} />
           </CardContent>
         </Card>
       </div>

@@ -1,11 +1,21 @@
+
 import { recurring, accounts } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
-export function UpcomingRecurring() {
-  const upcoming = recurring
-    .sort((a, b) => new Date(a.nextDate).getTime() - new Date(b.nextDate).getTime())
-    .slice(0, 5);
+export function UpcomingRecurring({ accountId }: { accountId: string }) {
+
+  const upcoming = React.useMemo(() => {
+    const filtered = accountId === 'all'
+      ? recurring
+      : recurring.filter((r) => r.accountId === accountId);
+
+    return filtered
+      .sort((a, b) => new Date(a.nextDate).getTime() - new Date(b.nextDate).getTime())
+      .slice(0, 5);
+  }, [accountId]);
+
 
   return (
     <div className="space-y-4">

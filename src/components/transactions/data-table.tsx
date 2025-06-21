@@ -14,6 +14,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 import {
   Table,
@@ -42,7 +43,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   accounts: Account[];
   categories: Category[];
-  initialCategoryFilter?: string | null;
+  initialFilters?: ColumnFiltersState;
 }
 
 export function DataTable<TData, TValue>({
@@ -50,14 +51,14 @@ export function DataTable<TData, TValue>({
   data,
   accounts,
   categories,
-  initialCategoryFilter,
+  initialFilters = [],
 }: DataTableProps<TData, TValue>) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    initialCategoryFilter
-      ? [{ id: 'category', value: initialCategoryFilter }]
-      : []
-  );
+  const [columnFilters, setColumnFilters] =
+    React.useState<ColumnFiltersState>(initialFilters);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [date, setDate] = React.useState<DateRange | undefined>();
@@ -72,6 +73,7 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
+    enableRowSelection: false,
     state: {
       sorting,
       columnFilters,
@@ -80,14 +82,16 @@ export function DataTable<TData, TValue>({
   });
 
   React.useEffect(() => {
-    if (date?.from) {
-      table.getColumn('date')?.setFilterValue([date.from, date.to]);
-    } else {
-      table.getColumn('date')?.setFilterValue(undefined);
-    }
+    table.getColumn('date')?.setFilterValue(date ? [date.from, date.to] : undefined);
   }, [date, table]);
 
   const isFiltered = table.getState().columnFilters.length > 0;
+
+  const resetFilters = () => {
+      table.resetColumnFilters();
+      setDate(undefined);
+      router.push(pathname, { scroll: false });
+  }
 
   return (
     <div className="space-y-4">
@@ -100,26 +104,28 @@ export function DataTable<TData, TValue>({
           onChange={(event) =>
             table.getColumn('description')?.setFilterValue(event.target.value)
           }
-          className="max-w-sm"
+          className="max-w-xs"
         />
         <DatePickerWithRange date={date} setDate={setDate} />
         <Select
           value={
             (table.getColumn('accountId')?.getFilterValue() as string) ?? 'all'
           }
-          onValueChange={(value) =>
-            table
+          onValueChange={(value) => {
+              const account = accounts.find(acc => acc.name === value);
+              table
               .getColumn('accountId')
-              ?.setFilterValue(value === 'all' ? undefined : value)
+              ?.setFilterValue(value === 'all' ? undefined : account?.name)
+            }
           }
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by Account"/>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Accounts</SelectItem>
             {accounts.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
+              <SelectItem key={account.id} value={account.name}>
                 {account.name}
               </SelectItem>
             ))}
@@ -135,7 +141,7 @@ export function DataTable<TData, TValue>({
               ?.setFilterValue(value === 'all' ? undefined : value)
           }
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by Category" />
           </SelectTrigger>
           <SelectContent>
@@ -155,7 +161,7 @@ export function DataTable<TData, TValue>({
               ?.setFilterValue(value === 'all' ? undefined : value)
           }
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Filter by Type"/>
           </SelectTrigger>
           <SelectContent>
@@ -167,10 +173,7 @@ export function DataTable<TData, TValue>({
         {isFiltered && (
           <Button
             variant="ghost"
-            onClick={() => {
-              table.resetColumnFilters();
-              setDate(undefined);
-            }}
+            onClick={resetFilters}
             className="h-8 px-2 lg:px-3"
           >
             Reset

@@ -8,21 +8,27 @@ import { AddTransactionDialog } from '@/components/transactions/add-transaction-
 import { transactions, accounts, categories } from '@/lib/data';
 import { PlusCircle } from 'lucide-react';
 import React from 'react';
-import { useGlobalFilter } from '@/context/global-filter-context';
 import { useSearchParams } from 'next/navigation';
 
 export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const { accountId } = useGlobalFilter();
   const searchParams = useSearchParams();
   const categoryFilter = searchParams.get('category');
+  const accountFilter = searchParams.get('accountId');
 
-  const filteredTransactions = React.useMemo(() => {
-    if (accountId === 'all') {
-      return transactions;
+  const initialFilters = React.useMemo(() => {
+    const filters = [];
+    if (categoryFilter) {
+      filters.push({ id: 'category', value: categoryFilter });
     }
-    return transactions.filter((t) => t.accountId === accountId);
-  }, [accountId]);
+    if (accountFilter && accountFilter !== 'all') {
+      const account = accounts.find(acc => acc.id === accountFilter);
+      if (account) {
+        filters.push({ id: 'accountId', value: account.name });
+      }
+    }
+    return filters;
+  }, [categoryFilter, accountFilter]);
 
   return (
     <div className="container mx-auto py-10">
@@ -41,10 +47,10 @@ export default function TransactionsPage() {
       </div>
       <DataTable
         columns={columns}
-        data={filteredTransactions}
+        data={transactions}
         accounts={accounts}
         categories={categories}
-        initialCategoryFilter={categoryFilter}
+        initialFilters={initialFilters}
       />
     </div>
   );
