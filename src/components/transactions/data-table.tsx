@@ -102,16 +102,20 @@ export function DataTable<TData, TValue>({
         />
         <DatePickerWithRange date={date} setDate={setDate} />
         <Select
-          value={(table.getColumn('accountId')?.getFilterValue() as string) ?? ''}
+          value={
+            (table.getColumn('accountId')?.getFilterValue() as string) ?? 'all'
+          }
           onValueChange={(value) =>
-            table.getColumn('accountId')?.setFilterValue(value || undefined)
+            table
+              .getColumn('accountId')
+              ?.setFilterValue(value === 'all' ? undefined : value)
           }
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by Account..." />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Accounts</SelectItem>
+            <SelectItem value="all">All Accounts</SelectItem>
             {accounts.map((account) => (
               <SelectItem key={account.id} value={account.id}>
                 {account.name}
@@ -119,17 +123,21 @@ export function DataTable<TData, TValue>({
             ))}
           </SelectContent>
         </Select>
-         <Select
-          value={(table.getColumn('category')?.getFilterValue() as string) ?? ''}
+        <Select
+          value={
+            (table.getColumn('category')?.getFilterValue() as string) ?? 'all'
+          }
           onValueChange={(value) =>
-            table.getColumn('category')?.setFilterValue(value || undefined)
+            table
+              .getColumn('category')
+              ?.setFilterValue(value === 'all' ? undefined : value)
           }
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by Category..." />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-             <SelectItem value="">All Categories</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.name}>
                 {category.name}
@@ -138,16 +146,18 @@ export function DataTable<TData, TValue>({
           </SelectContent>
         </Select>
         <Select
-          value={(table.getColumn('type')?.getFilterValue() as string) ?? ''}
+          value={(table.getColumn('type')?.getFilterValue() as string) ?? 'all'}
           onValueChange={(value) =>
-            table.getColumn('type')?.setFilterValue(value || undefined)
+            table
+              .getColumn('type')
+              ?.setFilterValue(value === 'all' ? undefined : value)
           }
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by Type..." />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Types</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="income">Income</SelectItem>
             <SelectItem value="expense">Expense</SelectItem>
           </SelectContent>
