@@ -4,6 +4,7 @@
 import * as React from 'react';
 import {
   ColumnDef,
+  Row,
   SortingState,
   VisibilityState,
   ColumnFiltersState,
@@ -14,7 +15,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 import {
   Table,
@@ -27,7 +28,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { DateRange } from 'react-day-picker';
+import type { DateRange } from 'react-day-picker';
 import {
   Select,
   SelectContent,
@@ -35,8 +36,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Account, Category } from '@/lib/definitions';
+import type { Account, Category, Transaction } from '@/lib/definitions';
 import { X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useSettings } from '@/contexts/settings-context';
+import { Card, CardContent } from '../ui/card';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { Badge } from '../ui/badge';
+import { DataTableRowActions } from './data-table-row-actions';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -55,6 +63,7 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] =
@@ -85,7 +94,7 @@ export function DataTable<TData, TValue>({
     table.getColumn('date')?.setFilterValue(date ? [date.from, date.to] : undefined);
   }, [date, table]);
 
-  const isFiltered = table.getState().columnFilters.length > 0;
+  const isFiltered = table.getState().columnFilters.length > 0 || date;
 
   const resetFilters = () => {
       table.resetColumnFilters();
@@ -93,9 +102,8 @@ export function DataTable<TData, TValue>({
       router.push(pathname, { scroll: false });
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
+  const filters = (
+     <div className="flex items-center gap-2 flex-wrap">
         <Input
           placeholder="Filter descriptions..."
           value={
@@ -181,6 +189,86 @@ export function DataTable<TData, TValue>({
           </Button>
         )}
       </div>
+  );
+
+  const pagination = (
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </Button>
+      </div>
+  );
+
+  if (isMobile) {
+    const { currency, dateFormat } = useSettings();
+    return (
+       <div className="space-y-4">
+        {filters}
+        <div className="space-y-3">
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => {
+               const transaction = row.original as TData & Transaction;
+               const account = accounts.find((a) => a.id === transaction.accountId);
+               const category = categories.find((c) => c.name === transaction.category);
+               const formattedAmount = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+              }).format(transaction.amount);
+
+              return (
+                <Card key={row.id}>
+                  <CardContent className="p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1 w-2/3">
+                        <p className="font-medium leading-tight truncate">{transaction.description}</p>
+                        <p className="text-sm text-muted-foreground">{account?.name}</p>
+                      </div>
+                       <div className={cn("text-right font-bold text-md", transaction.type === 'income' ? 'text-green-500' : 'text-destructive')}>
+                         {transaction.type === 'income' ? '+' : '-'}{formattedAmount}
+                      </div>
+                    </div>
+                     <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
+                      <div className="flex items-center gap-2">
+                        {category && <Badge variant="outline">{category.name}</Badge>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <span>{format(new Date(transaction.date), dateFormat)}</span>
+                        <DataTableRowActions row={row as Row<TData>} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          ) : (
+            <Card>
+              <CardContent className="h-24 text-center flex items-center justify-center text-muted-foreground">
+                No results.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+        {pagination}
+       </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      {filters}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -231,24 +319,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+      {pagination}
     </div>
   );
 }

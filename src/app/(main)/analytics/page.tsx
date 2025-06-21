@@ -255,16 +255,16 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4 justify-between items-start">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="text-muted-foreground">
             Get a detailed view of your finances.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <Select value={accountId} onValueChange={setAccountId}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Accounts" />
             </SelectTrigger>
             <SelectContent>
@@ -280,7 +280,7 @@ export default function AnalyticsPage() {
             value={period}
             onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}
           >
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="month">Month</TabsTrigger>
               <TabsTrigger value="year">Year</TabsTrigger>
               <TabsTrigger value="all">All Time</TabsTrigger>
@@ -373,7 +373,7 @@ export default function AnalyticsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={trendData}
-                    margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
