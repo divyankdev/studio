@@ -37,6 +37,9 @@ export function UpcomingRecurring({ accountId, accounts }: { accountId: string, 
     <div className="space-y-4">
       {upcoming.map((item) => {
         const account = accounts.find(acc => acc.id === item.accountId);
+        const nextDate = new Date(item.nextDate);
+        const isNextDateValid = !isNaN(nextDate.getTime());
+        
         return (
           <div className="flex items-center" key={item.id}>
             <div className="space-y-1">
@@ -57,7 +60,7 @@ export function UpcomingRecurring({ accountId, accounts }: { accountId: string, 
                 }).format(item.amount)}
               </div>
               <p className="text-xs text-muted-foreground">
-                Next: {format(new Date(item.nextDate), dateFormat)}
+                Next: {isNextDateValid ? format(nextDate, dateFormat) : 'N/A'}
               </p>
             </div>
           </div>
@@ -66,3 +69,4 @@ export function UpcomingRecurring({ accountId, accounts }: { accountId: string, 
     </div>
   );
 }
+

@@ -184,6 +184,16 @@ export default function RecurringPage() {
             <TableBody>
               {filteredRecurring.map((item) => {
                 const account = accounts.find((acc) => acc.id === item.accountId);
+                const nextDate = new Date(item.nextDate);
+                const isNextDateValid = !isNaN(nextDate.getTime());
+
+                let formattedEndDate = 'N/A';
+                if (item.endDate) {
+                  const endDate = new Date(item.endDate);
+                  if (!isNaN(endDate.getTime())) {
+                    formattedEndDate = format(endDate, dateFormat);
+                  }
+                }
                 return (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
@@ -193,12 +203,10 @@ export default function RecurringPage() {
                     <TableCell>{account?.name || 'N/A'}</TableCell>
                     <TableCell>{item.frequency}</TableCell>
                     <TableCell>
-                      {format(new Date(item.nextDate), dateFormat)}
+                      {isNextDateValid ? format(nextDate, dateFormat) : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {item.endDate
-                        ? format(new Date(item.endDate), dateFormat)
-                        : 'N/A'}
+                      {formattedEndDate}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -254,3 +262,4 @@ export default function RecurringPage() {
     </div>
   );
 }
+
