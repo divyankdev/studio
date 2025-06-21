@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,12 @@ import {
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
 import { recurring, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
+import { useGlobalFilter } from '@/context/global-filter-context';
 
 export default function RecurringPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const { accountId } = useGlobalFilter();
 
   // This is a placeholder for an expense object to pass to the edit dialog
   const mockTransactionForEdit = {
@@ -36,6 +39,13 @@ export default function RecurringPage() {
     type: 'expense' as const,
     accountId: 'acc-3',
   };
+
+  const filteredRecurring = React.useMemo(() => {
+    if (accountId === 'all') {
+      return recurring;
+    }
+    return recurring.filter((r) => r.accountId === accountId);
+  }, [accountId]);
 
   return (
     <div>
@@ -72,24 +82,34 @@ export default function RecurringPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recurring.map((item) => {
-              const account = accounts.find(acc => acc.id === item.accountId);
+            {filteredRecurring.map((item) => {
+              const account = accounts.find((acc) => acc.id === item.accountId);
               return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{item.category}</Badge>
                   </TableCell>
-                   <TableCell>{account?.name || 'N/A'}</TableCell>
+                  <TableCell>{account?.name || 'N/A'}</TableCell>
                   <TableCell>{item.frequency}</TableCell>
                   <TableCell>
                     {new Date(item.nextDate).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    {item.endDate ? new Date(item.endDate).toLocaleDateString() : 'N/A'}
+                    {item.endDate
+                      ? new Date(item.endDate).toLocaleDateString()
+                      : 'N/A'}
                   </TableCell>
-                  <TableCell className={cn("text-right font-medium", item.type === 'income' ? 'text-green-500' : 'text-destructive')}>
-                    {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
+                  <TableCell
+                    className={cn(
+                      'text-right font-medium',
+                      item.type === 'income'
+                        ? 'text-green-500'
+                        : 'text-destructive'
+                    )}
+                  >
+                    {item.type === 'income' ? '+' : '-'}$
+                    {item.amount.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
                     <AddTransactionDialog

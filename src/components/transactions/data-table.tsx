@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -25,25 +26,37 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { addDays } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { Account, Category } from '@/lib/definitions';
+import { X } from 'lucide-react';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  accounts: Account[];
+  categories: Category[];
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  accounts,
+  categories,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState({})
-  const [date, setDate] = React.useState<any>({
-    from: addDays(new Date(), -30),
-    to: new Date(),
-  });
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [date, setDate] = React.useState<DateRange | undefined>();
 
   const table = useReactTable({
     data,
@@ -55,35 +68,103 @@ export function DataTable<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
-      rowSelection,
     },
   });
 
-   React.useEffect(() => {
+  React.useEffect(() => {
     if (date?.from && date?.to) {
       table
         .getColumn('date')
         ?.setFilterValue([date.from.toISOString(), date.to.toISOString()]);
+    } else {
+       table.getColumn('date')?.setFilterValue(undefined);
     }
   }, [date, table]);
+  
+  const isFiltered = table.getState().columnFilters.length > 0 || !!date;
 
   return (
     <div className="space-y-4">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 flex-wrap">
         <Input
           placeholder="Filter descriptions..."
-          value={(table.getColumn("description")?.getFilterValue() as string) ?? ""}
+          value={
+            (table.getColumn('description')?.getFilterValue() as string) ?? ''
+          }
           onChange={(event) =>
-            table.getColumn("description")?.setFilterValue(event.target.value)
+            table.getColumn('description')?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
         <DatePickerWithRange date={date} setDate={setDate} />
+        <Select
+          value={(table.getColumn('accountId')?.getFilterValue() as string) ?? ''}
+          onValueChange={(value) =>
+            table.getColumn('accountId')?.setFilterValue(value || undefined)
+          }
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by Account..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Accounts</SelectItem>
+            {accounts.map((account) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+         <Select
+          value={(table.getColumn('category')?.getFilterValue() as string) ?? ''}
+          onValueChange={(value) =>
+            table.getColumn('category')?.setFilterValue(value || undefined)
+          }
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by Category..." />
+          </SelectTrigger>
+          <SelectContent>
+             <SelectItem value="">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.name}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={(table.getColumn('type')?.getFilterValue() as string) ?? ''}
+          onValueChange={(value) =>
+            table.getColumn('type')?.setFilterValue(value || undefined)
+          }
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by Type..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Types</SelectItem>
+            <SelectItem value="income">Income</SelectItem>
+            <SelectItem value="expense">Expense</SelectItem>
+          </SelectContent>
+        </Select>
+        {isFiltered && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              table.resetColumnFilters();
+              setDate(undefined);
+            }}
+            className="h-8 px-2 lg:px-3"
+          >
+            Reset
+            <X className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </div>
       <div className="rounded-md border">
         <Table>
@@ -135,11 +216,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-       <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
-        </div>
+      <div className="flex items-center justify-end space-x-2 py-4">
         <Button
           variant="outline"
           size="sm"

@@ -1,3 +1,7 @@
+
+'use client';
+
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -10,12 +14,22 @@ import { Overview } from '@/components/dashboard/overview';
 import { RecentTransactions } from '@/components/dashboard/recent-sales';
 import { transactions } from '@/lib/data';
 import { UpcomingRecurring } from '@/components/dashboard/upcoming-recurring';
+import { useGlobalFilter } from '@/context/global-filter-context';
 
 export default function DashboardPage() {
-  const totalIncome = transactions
+  const { accountId } = useGlobalFilter();
+
+  const filteredTransactions = React.useMemo(() => {
+    if (accountId === 'all') {
+      return transactions;
+    }
+    return transactions.filter((t) => t.accountId === accountId);
+  }, [accountId]);
+
+  const totalIncome = filteredTransactions
     .filter((t) => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
-  const totalExpenses = transactions
+  const totalExpenses = filteredTransactions
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
   const netBalance = totalIncome - totalExpenses;
@@ -77,7 +91,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
             <CardDescription>
-              You had {transactions.length} transactions this month.
+              You had {filteredTransactions.length} transactions this month.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -1,3 +1,6 @@
+
+'use client';
+
 import React from 'react';
 import {
   SidebarProvider,
@@ -24,12 +27,35 @@ import {
 } from '@/components/ui/select';
 import { accounts } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
+import {
+  GlobalFilterProvider,
+  useGlobalFilter,
+} from '@/context/global-filter-context';
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AccountFilter() {
+  const { accountId, setAccountId } = useGlobalFilter();
+
+  return (
+    <Select value={accountId} onValueChange={setAccountId}>
+      <SelectTrigger className="bg-sidebar-accent border-sidebar-border">
+        <SelectValue placeholder="All Accounts" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All Accounts</SelectItem>
+        {accounts.map((account) => (
+          <SelectItem key={account.id} value={account.id}>
+            <div className="flex items-center gap-2">
+              <account.icon className="h-4 w-4" />
+              {account.name}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function LayoutWithContext({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar>
@@ -42,22 +68,7 @@ export default function MainLayout({
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupLabel>Account Filter</SidebarGroupLabel>
-            <Select>
-              <SelectTrigger className="bg-sidebar-accent border-sidebar-border">
-                <SelectValue placeholder="All Accounts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Accounts</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.name} value={account.name}>
-                    <div className="flex items-center gap-2">
-                       <account.icon className="h-4 w-4" />
-                       {account.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AccountFilter />
           </SidebarGroup>
           <Separator className="my-2" />
           <SidebarNav />
@@ -74,5 +85,17 @@ export default function MainLayout({
         <MobileNav />
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <GlobalFilterProvider>
+      <LayoutWithContext>{children}</LayoutWithContext>
+    </GlobalFilterProvider>
   );
 }

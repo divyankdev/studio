@@ -1,37 +1,15 @@
+
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
 import { Transaction } from '@/lib/definitions';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { DataTableRowActions } from './data-table-row-actions';
 import { categories, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export const columns: ColumnDef<Transaction>[] = [
-  {
-    id: 'select',
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && 'indeterminate')
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
   {
     accessorKey: 'description',
     header: 'Description',
@@ -46,7 +24,7 @@ export const columns: ColumnDef<Transaction>[] = [
       return <Badge variant="outline">{category ? category.name : 'N/A'}</Badge>;
     },
      filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
+      return value === row.getValue(id)
     },
   },
    {
@@ -59,7 +37,7 @@ export const columns: ColumnDef<Transaction>[] = [
       return <div>{account ? account.name : 'N/A'}</div>;
     },
      filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
+      return value === row.getValue(id)
     },
   },
   {
@@ -76,7 +54,10 @@ export const columns: ColumnDef<Transaction>[] = [
            </div>
          </Badge>
       );
-    }
+    },
+    filterFn: (row, id, value) => {
+      return value === row.getValue(id)
+    },
   },
   {
     accessorKey: 'date',
@@ -86,8 +67,9 @@ export const columns: ColumnDef<Transaction>[] = [
       return new Intl.DateTimeFormat('en-US').format(date);
     },
     filterFn: (row, id, value) => {
-      const date = new Date(row.getValue(id));
-      const [from, to] = value as string[];
+      if (!value) return true;
+      const date = new Date(row.getValue(id) as string);
+      const [from, to] = value as [string, string];
       if (!from && !to) return true;
       if (from && !to) return date >= new Date(from);
       if (!from && to) return date <= new Date(to);
