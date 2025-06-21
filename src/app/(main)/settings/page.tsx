@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -236,7 +237,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <FormLabel htmlFor="email-notifications">Email Notifications</FormLabel>
+                <Label htmlFor="email-notifications">Email Notifications</Label>
                 <p className="text-sm text-muted-foreground">Receive updates and alerts in your inbox.</p>
               </div>
               <Switch id="email-notifications" defaultChecked />
@@ -244,7 +245,7 @@ export default function SettingsPage() {
              <Separator />
             <div className="flex items-center justify-between">
                <div>
-                <FormLabel htmlFor="push-notifications">Push Notifications</FormLabel>
+                <Label htmlFor="push-notifications">Push Notifications</Label>
                 <p className="text-sm text-muted-foreground">Get real-time alerts on your devices.</p>
               </div>
               <Switch id="push-notifications" />
