@@ -50,3 +50,13 @@ export type RecurringTransaction = {
   endDate: string;
   type: 'income' | 'expense';
 };
+
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY';
+export type DateFormat = 'MM/dd/yyyy' | 'dd/MM/yyyy' | 'yyyy-MM-dd';
+export type Language = 'en' | 'es' | 'fr';
+
+export interface Settings {
+  currency: Currency;
+  dateFormat: DateFormat;
+  language: Language;
+}

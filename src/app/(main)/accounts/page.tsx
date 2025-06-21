@@ -18,12 +18,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddAccountDialog } from '@/components/accounts/add-account-dialog';
+import { useSettings } from '@/contexts/settings-context';
 
 export default function AccountsPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState<Account | null>(
     null
   );
+  const { currency } = useSettings();
 
   return (
     <div>
@@ -82,11 +84,10 @@ export default function AccountsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                $
-                {account.balance.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: currency,
+                }).format(account.balance)}
               </div>
               <p className="text-xs text-muted-foreground">{account.type}</p>
             </CardContent>

@@ -8,6 +8,8 @@ import { DataTableRowActions } from './data-table-row-actions';
 import { categories, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import { useSettings } from '@/contexts/settings-context';
+import { format } from 'date-fns';
 
 export const columns: ColumnDef<Transaction>[] = [
   {
@@ -64,8 +66,9 @@ export const columns: ColumnDef<Transaction>[] = [
     accessorKey: 'date',
     header: 'Date',
     cell: ({ row }) => {
+      const { dateFormat } = useSettings();
       const date = new Date(row.getValue('date'));
-      return new Intl.DateTimeFormat('en-US').format(date);
+      return format(date, dateFormat);
     },
     filterFn: (row, id, value) => {
       if (!value) return true;
@@ -83,12 +86,13 @@ export const columns: ColumnDef<Transaction>[] = [
     accessorKey: 'amount',
     header: () => <div className="text-right">Amount</div>,
     cell: ({ row }) => {
+      const { currency } = useSettings();
       const amount = parseFloat(row.getValue('amount'));
       const type = row.getValue('type') as string;
       
       const formatted = new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: 'USD',
+        currency: currency,
       }).format(amount);
 
       return <div className={cn("text-right font-medium", type === 'income' ? 'text-green-600' : 'text-foreground')}>{formatted}</div>;

@@ -3,10 +3,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { transactions, users, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { useSettings } from '@/contexts/settings-context';
 
 const user = users[0];
 
 export function RecentTransactions({ accountId }: { accountId: string }) {
+  const { currency } = useSettings();
   
   const recentTransactions = React.useMemo(() => {
      const filtered = accountId === 'all'
@@ -42,8 +44,11 @@ export function RecentTransactions({ accountId }: { accountId: string }) {
                 transaction.type === 'income' ? 'text-green-500' : 'text-foreground'
               )}
             >
-              {transaction.type === 'income' ? '+' : '-'}$
-              {transaction.amount.toFixed(2)}
+              {transaction.type === 'income' ? '+' : '-'}
+              {new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+              }).format(transaction.amount)}
             </div>
           </div>
         );

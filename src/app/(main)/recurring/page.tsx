@@ -29,11 +29,14 @@ import {
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
 import { recurring, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
+import { useSettings } from '@/contexts/settings-context';
+import { format } from 'date-fns';
 
 export default function RecurringPage() {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [accountId, setAccountId] = React.useState('all');
+  const { currency, dateFormat } = useSettings();
 
   // This is a placeholder for an expense object to pass to the edit dialog
   const mockTransactionForEdit = {
@@ -52,6 +55,12 @@ export default function RecurringPage() {
     }
     return recurring.filter((r) => r.accountId === accountId);
   }, [accountId]);
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(value);
 
   return (
     <div>
@@ -119,11 +128,11 @@ export default function RecurringPage() {
                   <TableCell>{account?.name || 'N/A'}</TableCell>
                   <TableCell>{item.frequency}</TableCell>
                   <TableCell>
-                    {new Date(item.nextDate).toLocaleDateString()}
+                    {format(new Date(item.nextDate), dateFormat)}
                   </TableCell>
                   <TableCell>
                     {item.endDate
-                      ? new Date(item.endDate).toLocaleDateString()
+                      ? format(new Date(item.endDate), dateFormat)
                       : 'N/A'}
                   </TableCell>
                   <TableCell
@@ -134,8 +143,8 @@ export default function RecurringPage() {
                         : 'text-destructive'
                     )}
                   >
-                    {item.type === 'income' ? '+' : '-'}$
-                    {item.amount.toFixed(2)}
+                    {item.type === 'income' ? '+' : ''}
+                    {formatCurrency(item.amount)}
                   </TableCell>
                   <TableCell className="text-right">
                     <AddTransactionDialog

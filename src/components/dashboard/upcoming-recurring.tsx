@@ -3,8 +3,11 @@ import { recurring, accounts } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { useSettings } from '@/contexts/settings-context';
+import { format } from 'date-fns';
 
 export function UpcomingRecurring({ accountId }: { accountId: string }) {
+  const { currency, dateFormat } = useSettings();
 
   const upcoming = React.useMemo(() => {
     const filtered = accountId === 'all'
@@ -34,10 +37,14 @@ export function UpcomingRecurring({ accountId }: { accountId: string }) {
                   item.type === 'income' ? 'text-green-500' : ''
                 )}
               >
-                {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
+                {item.type === 'income' ? '+' : '-'}
+                {new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: currency,
+                }).format(item.amount)}
               </div>
               <p className="text-xs text-muted-foreground">
-                Next: {new Date(item.nextDate).toLocaleDateString()}
+                Next: {format(new Date(item.nextDate), dateFormat)}
               </p>
             </div>
           </div>

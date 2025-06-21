@@ -4,6 +4,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,6 +22,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -37,6 +45,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useSettings } from '@/contexts/settings-context';
+import { users } from '@/lib/data';
+import type { Currency, DateFormat, Language } from '@/lib/definitions';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, {
@@ -63,6 +75,10 @@ const passwordFormSchema = z
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { currency, setCurrency, dateFormat, setDateFormat, language, setLanguage } = useSettings();
+  const user = users[0];
+  const [avatarPreview, setAvatarPreview] = React.useState(user.avatarUrl);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
@@ -81,6 +97,21 @@ export default function SettingsPage() {
       confirmPassword: '',
     },
   });
+  
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+      toast({
+        title: 'Profile Picture Updated',
+        description: "Your new profile picture has been set.",
+      });
+    }
+  };
+
+  const handleAvatarClick = () => {
+      fileInputRef.current?.click();
+  };
 
   function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
     console.log(values);
@@ -120,11 +151,19 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
-            <CardDescription>Update your personal information.</CardDescription>
+            <CardDescription>Update your personal information and profile picture.</CardDescription>
           </CardHeader>
           <Form {...profileForm}>
             <form onSubmit={profileForm.handleSubmit(onProfileSubmit)}>
               <CardContent className="space-y-4">
+                 <div className="flex items-center gap-4">
+                    <Avatar className="h-20 w-20">
+                        <AvatarImage src={avatarPreview} alt={user.name} data-ai-hint="person avatar" />
+                        <AvatarFallback>AJ</AvatarFallback>
+                    </Avatar>
+                    <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/*" />
+                    <Button type="button" variant="outline" onClick={handleAvatarClick}>Change Picture</Button>
+                </div>
                 <div className="grid md:grid-cols-2 gap-4">
                    <FormField
                       control={profileForm.control}
@@ -172,6 +211,51 @@ export default function SettingsPage() {
               </CardFooter>
             </form>
           </Form>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Preferences</CardTitle>
+            <CardDescription>Customize your experience across the application.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="currency">Currency</Label>
+                    <Select value={currency} onValueChange={(value) => setCurrency(value as Currency)}>
+                        <SelectTrigger id="currency"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="USD">USD ($)</SelectItem>
+                            <SelectItem value="EUR">EUR (€)</SelectItem>
+                            <SelectItem value="GBP">GBP (£)</SelectItem>
+                            <SelectItem value="JPY">JPY (¥)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="language">Language</Label>
+                    <Select value={language} onValueChange={(value) => setLanguage(value as Language)}>
+                        <SelectTrigger id="language"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="es">Español</SelectItem>
+                            <SelectItem value="fr">Français</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="date-format">Date Format</Label>
+                <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
+                    <SelectTrigger id="date-format"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="MM/dd/yyyy">Month/Day/Year (e.g. 07/23/2024)</SelectItem>
+                        <SelectItem value="dd/MM/yyyy">Day/Month/Year (e.g. 23/07/2024)</SelectItem>
+                        <SelectItem value="yyyy-MM-dd">Year-Month-Day (e.g. 2024-07-23)</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+          </CardContent>
         </Card>
 
         <Card>

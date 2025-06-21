@@ -21,9 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useSettings } from '@/contexts/settings-context';
 
 export default function DashboardPage() {
   const [accountId, setAccountId] = React.useState('all');
+  const { currency } = useSettings();
 
   const filteredTransactions = React.useMemo(() => {
     if (accountId === 'all') {
@@ -39,6 +41,13 @@ export default function DashboardPage() {
     .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
   const netBalance = totalIncome - totalExpenses;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(value);
+  };
 
   return (
     <div className="flex-1 space-y-4">
@@ -71,7 +80,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-500">
-              ${totalIncome.toFixed(2)}
+              {formatCurrency(totalIncome)}
             </div>
             <p className="text-xs text-muted-foreground">
               +20.1% from last month
@@ -85,7 +94,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              ${totalExpenses.toFixed(2)}
+              {formatCurrency(totalExpenses)}
             </div>
             <p className="text-xs text-muted-foreground">
               +15.2% from last month
@@ -98,7 +107,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${netBalance.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(netBalance)}</div>
             <p className="text-xs text-muted-foreground">
               Balance for this month
             </p>

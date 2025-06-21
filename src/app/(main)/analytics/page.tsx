@@ -60,6 +60,7 @@ import {
   subYears,
   isAfter,
 } from 'date-fns';
+import { useSettings } from '@/contexts/settings-context';
 
 const COLORS = [
   '#4780FF',
@@ -76,6 +77,7 @@ export default function AnalyticsPage() {
     'month'
   );
   const [displayDate, setDisplayDate] = React.useState(new Date());
+  const { currency, dateFormat } = useSettings();
 
   const handlePrev = () => {
     if (period === 'month') {
@@ -245,6 +247,12 @@ export default function AnalyticsPage() {
     rangeDescription,
   } = analyticsData;
 
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(value);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-4 justify-between items-start">
@@ -310,7 +318,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">
-                ${totalSpent.toFixed(2)}
+                {formatCurrency(totalSpent)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Total spending {rangeDescription}
@@ -324,7 +332,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-500">
-                ${totalIncome.toFixed(2)}
+                {formatCurrency(totalIncome)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Total income {rangeDescription}
@@ -344,7 +352,7 @@ export default function AnalyticsPage() {
                     : 'text-destructive'
                 }`}
               >
-                ${(totalIncome - totalSpent).toFixed(2)}
+                {formatCurrency(totalIncome - totalSpent)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Income vs. Expenses {rangeDescription}
@@ -377,9 +385,16 @@ export default function AnalyticsPage() {
                     />
                     <YAxis
                       stroke="hsl(var(--muted-foreground))"
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) =>
+                        new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: currency,
+                          notation: 'compact',
+                        }).format(value)
+                      }
                     />
                     <Tooltip
+                       formatter={(value: number) => formatCurrency(value)}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--background))',
                         borderColor: 'hsl(var(--border))',
@@ -437,6 +452,7 @@ export default function AnalyticsPage() {
                       ))}
                     </Pie>
                     <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
                       content={<ChartTooltipContent hideLabel nameKey="name" />}
                     />
                     <Legend />
@@ -476,6 +492,7 @@ export default function AnalyticsPage() {
                       ))}
                     </Pie>
                     <Tooltip
+                       formatter={(value: number) => formatCurrency(value)}
                       content={<ChartTooltipContent hideLabel nameKey="name" />}
                     />
                     <Legend />

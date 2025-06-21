@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { format, getDaysInMonth, getDate, isSameMonth } from 'date-fns';
+import { useSettings } from '@/contexts/settings-context';
 
 // Mock data for budgets. In a real app, this would come from a database.
 const userBudgets: Omit<Budget, 'spent' | 'id'>[] = [
@@ -36,6 +37,7 @@ export default function BudgetPage() {
   const [editingBudget, setEditingBudget] = React.useState<Budget | null>(
     null
   );
+  const { currency } = useSettings();
 
   const monthlyBudgetData = React.useMemo(() => {
     const now = new Date();
@@ -67,6 +69,12 @@ export default function BudgetPage() {
   const daysRemaining = Math.max(1, daysInMonth - today);
   const overallDailyBudget = (totalBudget - totalSpent) / daysRemaining;
 
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(value);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -93,7 +101,7 @@ export default function BudgetPage() {
             <div className="flex justify-between mb-1">
               <span className="text-base font-medium">Total Spent</span>
               <span className="text-base font-medium">
-                ${totalSpent.toFixed(2)} / ${totalBudget.toFixed(2)}
+                {formatCurrency(totalSpent)} / {formatCurrency(totalBudget)}
               </span>
             </div>
             <Progress value={totalProgress} className="h-3" />
@@ -102,7 +110,7 @@ export default function BudgetPage() {
             <div>
               <p className="text-sm text-muted-foreground">Remaining Budget</p>
               <p className="text-xl font-bold">
-                ${(totalBudget - totalSpent).toFixed(2)}
+                {formatCurrency(totalBudget - totalSpent)}
               </p>
             </div>
             <div>
@@ -112,7 +120,7 @@ export default function BudgetPage() {
                   overallDailyBudget < 0 ? 'text-destructive' : ''
                 }`}
               >
-                ${overallDailyBudget.toFixed(2)}/day
+                {formatCurrency(overallDailyBudget)}/day
               </p>
             </div>
           </div>
@@ -151,7 +159,7 @@ export default function BudgetPage() {
                         isOverBudget ? 'text-destructive' : ''
                       }`}
                     >
-                      ${item.spent.toFixed(2)}
+                      {formatCurrency(item.spent)}
                     </span>
                     <div onClick={(e) => e.preventDefault()}>
                       <AddBudgetDialog
@@ -184,7 +192,7 @@ export default function BudgetPage() {
                   </div>
                 </div>
                 <CardDescription>
-                  of ${item.amount.toFixed(2)} budget
+                  of {formatCurrency(item.amount)} budget
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -200,8 +208,8 @@ export default function BudgetPage() {
                   }`}
                 >
                   {isOverBudget
-                    ? `$${(item.spent - item.amount).toFixed(2)} over budget`
-                    : `$${(item.amount - item.spent).toFixed(2)} left`}
+                    ? `${formatCurrency(item.spent - item.amount)} over budget`
+                    : `${formatCurrency(item.amount - item.spent)} left`}
                 </p>
               </CardContent>
             </Card>
