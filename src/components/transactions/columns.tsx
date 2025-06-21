@@ -48,7 +48,7 @@ export const columns: ColumnDef<Transaction>[] = [
     cell: ({ row }) => {
       const type = row.getValue('type') as string;
       const isIncome = type === 'income';
-      const typeLabel = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'N/A';
+      const typeLabel = typeof type === 'string' && type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : 'N/A';
       return (
          <Badge variant={isIncome ? 'default' : 'secondary'} className={cn(isIncome && 'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30')}>
            <div className="flex items-center gap-1">

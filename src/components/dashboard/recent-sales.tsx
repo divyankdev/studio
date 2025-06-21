@@ -1,5 +1,4 @@
 
-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import React from 'react';
@@ -26,8 +25,7 @@ export function RecentTransactions({ transactions, accounts, accountId }: { tran
 
   return (
     <div className="space-y-8">
-      {recentTransactions.map((transaction, index) => {
-        if (!transaction) return null;
+      {recentTransactions.filter(Boolean).map((transaction, index) => {
         const account = accounts.find((acc) => acc.id === transaction.accountId);
         return (
           <div className="flex items-center" key={transaction.id ? `${transaction.id}-${index}`: index}>

@@ -35,8 +35,7 @@ export function UpcomingRecurring({ accountId, accounts }: { accountId: string, 
 
   return (
     <div className="space-y-4">
-      {upcoming.map((item, index) => {
-        if (!item) return null;
+      {upcoming.filter(Boolean).map((item, index) => {
         const account = accounts.find(acc => acc.id === item.accountId);
         const nextDate = new Date(item.nextDate);
         const isNextDateValid = !isNaN(nextDate.getTime());
