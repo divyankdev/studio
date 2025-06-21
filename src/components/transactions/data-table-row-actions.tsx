@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -13,6 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Transaction } from '@/lib/definitions';
 import { AddTransactionDialog } from './add-transaction-dialog';
+import { useSWRConfig } from 'swr';
+import { useToast } from '@/hooks/use-toast';
+import { deleteData } from '@/lib/api';
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
@@ -23,6 +27,36 @@ export function DataTableRowActions<TData extends Transaction>({
 }: DataTableRowActionsProps<TData>) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const transaction = row.original;
+  const { toast } = useToast();
+  const { mutate } = useSWRConfig();
+
+  const handleDelete = async () => {
+    try {
+      await deleteData(`/transactions/${transaction.id}`);
+      mutate('/transactions');
+      toast({
+        title: 'Transaction deleted',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete transaction.',
+      });
+    }
+  };
+
+  const handleCopy = () => {
+    const { id, ...copiedTransaction } = transaction;
+    // Here you could open the dialog with the copied data
+    // For now, we just log it
+    console.log("Copied Transaction:", copiedTransaction);
+     toast({
+        title: 'Transaction copied',
+        description: 'A new transaction has been created with the same details.',
+      });
+  }
 
   return (
     <>
@@ -45,9 +79,12 @@ export function DataTableRowActions<TData extends Transaction>({
             <DropdownMenuItem onSelect={() => setDialogOpen(true)}>
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem>Make a copy</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleCopy}>Make a copy</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              onSelect={handleDelete}
+            >
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

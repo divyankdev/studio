@@ -2,10 +2,9 @@
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
-import { Transaction } from '@/lib/definitions';
+import { Transaction, Account, Category } from '@/lib/definitions';
 import { Badge } from '@/components/ui/badge';
 import { DataTableRowActions } from './data-table-row-actions';
-import { categories, accounts } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
@@ -21,9 +20,7 @@ export const columns: ColumnDef<Transaction>[] = [
     header: 'Category',
     cell: ({ row }) => {
       const categoryName = row.getValue('category') as string;
-      const category = categories.find((c) => c.name === categoryName);
-      
-      return <Badge variant="outline">{category ? category.name : 'N/A'}</Badge>;
+      return <Badge variant="outline">{categoryName}</Badge>;
     },
      filterFn: (row, id, value) => {
       return value === row.getValue(id)
@@ -32,13 +29,15 @@ export const columns: ColumnDef<Transaction>[] = [
    {
     accessorKey: 'accountId',
     header: 'Account',
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
+      const accounts = (table.options.meta as any)?.accounts as Account[] || [];
       const accountId = row.getValue('accountId') as string;
       const account = accounts.find((a) => a.id === accountId);
       
       return <div>{account ? account.name : 'N/A'}</div>;
     },
      filterFn: (row, id, value) => {
+      const accounts = (row.table.options.meta as any)?.accounts as Account[] || [];
       const account = accounts.find((a) => a.id === row.getValue(id));
       return value === account?.name;
     },

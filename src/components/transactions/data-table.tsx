@@ -88,6 +88,10 @@ export function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility,
     },
+    meta: {
+      accounts,
+      categories,
+    }
   });
 
   React.useEffect(() => {

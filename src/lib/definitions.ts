@@ -11,7 +11,7 @@ export type User = {
 export type Category = {
   id: string;
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: string;
 };
 
 export type Transaction = {
@@ -22,6 +22,9 @@ export type Transaction = {
   category: string;
   date: string; // ISO 8601 format
   type: 'income' | 'expense';
+  isRecurring?: boolean;
+  frequency?: string;
+  endDate?: string;
 };
 
 export type Account = {
@@ -29,7 +32,6 @@ export type Account = {
   name: string;
   type: "Checking" | "Savings" | "Credit Card" | "Wallet";
   balance: number;
-  icon: LucideIcon;
 };
 
 export type Budget = {
@@ -45,9 +47,9 @@ export type RecurringTransaction = {
   accountId: string;
   category: string;
   amount: number;
-  frequency: 'Monthly' | 'Weekly' | 'Yearly';
+  frequency: 'Daily' | 'Weekly' |'Monthly' | 'Yearly';
   nextDate: string;
-  endDate: string;
+  endDate?: string;
   type: 'income' | 'expense';
 };
 

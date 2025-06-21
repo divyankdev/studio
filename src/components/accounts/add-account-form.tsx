@@ -23,6 +23,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { Account } from '@/lib/definitions';
+import { postData, putData } from '@/lib/api';
+import { useSWRConfig } from 'swr';
+import React from 'react';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -39,6 +42,7 @@ type AddAccountFormProps = {
 
 export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,13 +53,33 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: account ? 'Account Updated!' : 'Account Added!',
-      description: `Saved account "${values.name}".`,
-    });
-    onFinished?.();
+  React.useEffect(() => {
+    if (account) {
+      form.reset(account);
+    }
+  }, [account, form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      if (account) {
+        await putData(`/accounts/${account.id}`, values);
+      } else {
+        await postData('/accounts', values);
+      }
+      mutate('/accounts'); // Revalidate the accounts list
+      toast({
+        title: account ? 'Account Updated!' : 'Account Added!',
+        description: `Saved account "${values.name}".`,
+      });
+      onFinished?.();
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'An error occurred',
+        description: 'Failed to save account. Please try again.',
+      });
+    }
   }
 
   return (

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,13 +31,15 @@ import {
 import { CalendarIcon, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { categories, accounts } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { suggestCategoryAction } from '@/lib/actions';
 import React from 'react';
-import type { Transaction } from '@/lib/definitions';
+import type { Transaction, Account, Category } from '@/lib/definitions';
 import { Checkbox } from '../ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import useSWR, { useSWRConfig } from 'swr';
+import { fetcher, postData, putData } from '@/lib/api';
+import { getIcon, getAccountIcon } from '@/lib/icon-map';
 
 const formSchema = z
   .object({
@@ -57,40 +60,60 @@ const formSchema = z
   .refine(
     (data) => {
       if (data.isRecurring) {
-        return !!data.frequency && !!data.endDate;
+        return !!data.frequency; // End date is optional
       }
       return true;
     },
     {
-      message: 'Frequency and End Date are required for recurring transactions.',
+      message: 'Frequency is required for recurring transactions.',
       path: ['frequency'],
     }
   );
 
 type AddTransactionFormProps = {
-  transaction?: Transaction;
+  transaction?: Partial<Transaction>;
   onFinished?: () => void;
 };
 
 export function AddTransactionForm({ transaction, onFinished }: AddTransactionFormProps) {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig();
   const [isSuggesting, setIsSuggesting] = React.useState(false);
+  
+  const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
+  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: transaction?.description ?? '',
-      amount: transaction?.amount ?? 0,
+      amount: transaction?.amount ?? undefined,
       date: transaction?.date ? new Date(transaction.date) : new Date(),
-      category:
-        categories.find((c) => c.name === transaction?.category)?.id ?? '',
+      category: transaction?.category ?? '',
       accountId: transaction?.accountId ?? '',
       type: transaction?.type ?? 'expense',
-      isRecurring: false,
-      frequency: '',
-      endDate: undefined,
+      isRecurring: transaction?.isRecurring ?? false,
+      frequency: transaction?.frequency ?? '',
+      endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
     },
   });
+
+  React.useEffect(() => {
+    if (transaction) {
+        form.reset({
+            description: transaction?.description ?? '',
+            amount: transaction?.amount ?? undefined,
+            date: transaction?.date ? new Date(transaction.date) : new Date(),
+            category: transaction?.category ?? '',
+            accountId: transaction?.accountId ?? '',
+            type: transaction?.type ?? 'expense',
+            isRecurring: transaction?.isRecurring ?? false,
+            frequency: transaction?.frequency ?? '',
+            endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
+        });
+    }
+  }, [transaction, form]);
+
 
   const isRecurring = form.watch('isRecurring');
 
@@ -108,11 +131,11 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
     try {
       const result = await suggestCategoryAction(description);
       if (result.category) {
-        const matchedCategory = categories.find(
+        const matchedCategory = categories?.find(
           (c) => c.name.toLowerCase() === result.category.toLowerCase()
         );
         if (matchedCategory) {
-          form.setValue('category', matchedCategory.id);
+          form.setValue('category', matchedCategory.name);
           toast({
             title: 'Suggestion applied!',
             description: `We've set the category to "${matchedCategory.name}".`,
@@ -142,13 +165,34 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: transaction ? 'Transaction Updated!' : 'Transaction Added!',
-      description: `Saved "${values.description}" to your transactions.`,
-    });
-    onFinished?.();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    const endpoint = values.isRecurring ? '/recurring-transactions' : '/transactions';
+    const mutationEndpoints = values.isRecurring ? ['/recurring-transactions', '/transactions'] : ['/transactions'];
+    
+    const dataToSubmit = {
+        ...values,
+        name: values.description, // For recurring transactions
+        nextDate: values.date, // For recurring transactions
+    };
+
+    try {
+      if (transaction?.id) {
+        await putData(`${endpoint}/${transaction.id}`, dataToSubmit);
+      } else {
+        await postData(endpoint, dataToSubmit);
+      }
+      
+      mutationEndpoints.forEach(e => mutate(e));
+
+      toast({
+        title: transaction?.id ? 'Transaction Updated!' : 'Transaction Added!',
+        description: `Saved "${values.description}".`,
+      });
+      onFinished?.();
+    } catch (e) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save transaction.'});
+    }
   }
 
   return (
@@ -204,7 +248,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
             <FormItem>
               <FormLabel>Amount</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="0.00" {...field} />
+                <Input type="number" step="0.01" placeholder="0.00" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -216,21 +260,24 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
           render={({ field }) => (
             <FormItem>
               <FormLabel>Account</FormLabel>
-               <Select onValueChange={field.onChange} defaultValue={field.value}>
+               <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an account" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {accounts.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        <div className="flex items-center gap-2">
-                          <acc.icon className="h-4 w-4" />
-                          {acc.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {accounts?.map((acc) => {
+                      const Icon = getAccountIcon(acc.type);
+                      return (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {acc.name}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               <FormMessage />
@@ -242,7 +289,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
           name="date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Date of Transaction</FormLabel>
+              <FormLabel>{isRecurring ? 'Start Date' : 'Date of Transaction'}</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -288,7 +335,6 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                 <Select
                   onValueChange={field.onChange}
                   value={field.value}
-                  defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -296,14 +342,17 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        <div className="flex items-center gap-2">
-                          <cat.icon className="h-4 w-4" />
-                          {cat.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {categories?.map((cat) => {
+                      const Icon = getIcon(cat.icon);
+                      return (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {cat.name}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
                 <Button
@@ -363,10 +412,10 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
+                      <SelectItem value="Daily">Daily</SelectItem>
+                      <SelectItem value="Weekly">Weekly</SelectItem>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Yearly">Yearly</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -378,7 +427,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
               name="endDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>End Date</FormLabel>
+                  <FormLabel>End Date (Optional)</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -415,7 +464,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
         )}
 
         <Button type="submit" className="w-full">
-          {transaction ? 'Save Changes' : 'Add Transaction'}
+          {transaction?.id ? 'Save Changes' : 'Add Transaction'}
         </Button>
       </form>
     </Form>

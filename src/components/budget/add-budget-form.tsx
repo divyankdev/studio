@@ -22,7 +22,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { categories } from '@/lib/data';
+import type { Budget, Category } from '@/lib/definitions';
+import { postData, putData } from '@/lib/api';
+import useSWR, { useSWRConfig } from 'swr';
+import { fetcher } from '@/lib/api';
+import { getIcon } from '@/lib/icon-map';
+import React from 'react';
 
 const formSchema = z.object({
   category: z.string().min(1, {
@@ -33,12 +38,6 @@ const formSchema = z.object({
   }),
 });
 
-type Budget = {
-    category: string;
-    spent: number;
-    budget: number;
-}
-
 type AddBudgetFormProps = {
   budget?: Budget;
   onFinished?: () => void;
@@ -46,22 +45,47 @@ type AddBudgetFormProps = {
 
 export function AddBudgetForm({ budget, onFinished }: AddBudgetFormProps) {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig();
+  const { data: categories, error } = useSWR<Category[]>('/categories', fetcher);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       category: budget?.category ?? '',
-      amount: budget?.budget ?? 0,
+      amount: budget?.amount ?? 0,
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: budget ? 'Budget Updated!' : 'Budget Created!',
-      description: `Budget for "${values.category}" has been saved.`,
-    });
-    onFinished?.();
+  React.useEffect(() => {
+    if (budget) {
+      form.reset({
+        category: budget.category,
+        amount: budget.amount,
+      });
+    }
+  }, [budget, form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      if (budget) {
+        await putData(`/budgets/${budget.id}`, values);
+      } else {
+        await postData('/budgets', values);
+      }
+      mutate('/budgets');
+      toast({
+        title: budget ? 'Budget Updated!' : 'Budget Created!',
+        description: `Budget for "${values.category}" has been saved.`,
+      });
+      onFinished?.();
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'An error occurred',
+        description: 'Failed to save budget.',
+      });
+    }
   }
 
   return (
@@ -73,21 +97,24 @@ export function AddBudgetForm({ budget, onFinished }: AddBudgetFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!budget}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                   {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        <div className="flex items-center gap-2">
-                          <cat.icon className="h-4 w-4" />
-                          {cat.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                   {categories?.map((cat) => {
+                      const Icon = getIcon(cat.icon);
+                      return (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {cat.name}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
                 </SelectContent>
               </Select>
               <FormMessage />

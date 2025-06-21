@@ -1,6 +1,7 @@
 
 'use client';
 import React from 'react';
+import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,10 +11,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { categories, transactions } from '@/lib/data';
 import { MoreHorizontal, PlusCircle, AlertTriangle } from 'lucide-react';
 import { AddBudgetDialog } from '@/components/budget/add-budget-dialog';
-import type { Budget } from '@/lib/definitions';
+import type { Budget, Transaction, Category } from '@/lib/definitions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,24 +22,87 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { format, getDaysInMonth, getDate, isSameMonth } from 'date-fns';
 import { useSettings } from '@/contexts/settings-context';
+import { fetcher, deleteData } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getIcon } from '@/lib/icon-map';
+import { useToast } from '@/hooks/use-toast';
 
-// Mock data for budgets. In a real app, this would come from a database.
-const userBudgets: Omit<Budget, 'spent' | 'id'>[] = [
-  { category: 'Food', amount: 500 },
-  { category: 'Shopping', amount: 400 },
-  { category: 'Transport', amount: 100 },
-  { category: 'Entertainment', amount: 150 },
-  { category: 'Housing', amount: 1200 },
-];
+function BudgetSkeleton() {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="mb-6">
+        <CardHeader>
+          <Skeleton className="h-6 w-1/2" />
+          <Skeleton className="h-4 w-1/4" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-6 rounded-full" />
+                  <Skeleton className="h-6 w-24" />
+                </div>
+                <Skeleton className="h-6 w-16" />
+              </div>
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-4 w-24 mt-2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function BudgetPage() {
+  const { toast } = useToast();
+  const { mutate } = useSWRConfig();
+  const { data: budgets, error: bError } = useSWR<Budget[]>('/budgets', fetcher);
+  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
+  const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
+
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
-  const [editingBudget, setEditingBudget] = React.useState<Budget | null>(
-    null
-  );
+  const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
   const { currency } = useSettings();
 
+  const handleDelete = async (budgetId: string) => {
+    try {
+      await deleteData(`/budgets/${budgetId}`);
+      mutate('/budgets');
+      toast({ title: 'Budget deleted successfully' });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Error deleting budget',
+        description: 'Please try again.',
+      });
+    }
+  };
+
   const monthlyBudgetData = React.useMemo(() => {
+    if (!budgets || !transactions) return [];
+
     const now = new Date();
     const currentMonthTransactions = transactions.filter(
       (t) => isSameMonth(new Date(t.date), now) && t.type === 'expense'
@@ -50,15 +113,14 @@ export default function BudgetPage() {
       return acc;
     }, {} as Record<string, number>);
 
-    return userBudgets.map((b, index) => {
+    return budgets.map((b) => {
       const spent = spendingByCategory[b.category] || 0;
       return {
-        id: `budget-${index}`,
         ...b,
         spent,
       };
     });
-  }, []);
+  }, [budgets, transactions]);
 
   const totalBudget = monthlyBudgetData.reduce((sum, b) => sum + b.amount, 0);
   const totalSpent = monthlyBudgetData.reduce((sum, b) => sum + b.spent, 0);
@@ -74,6 +136,9 @@ export default function BudgetPage() {
       style: 'currency',
       currency: currency,
     }).format(value);
+    
+  if (bError || tError || cError) return <div>Failed to load data.</div>;
+  if (!budgets || !transactions || !categories) return <BudgetSkeleton />;
 
   return (
     <div>
@@ -84,8 +149,19 @@ export default function BudgetPage() {
             Set and track your spending goals for this month.
           </p>
         </div>
-        <AddBudgetDialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <Button>
+        <AddBudgetDialog
+          open={addDialogOpen || !!editingBudget}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setAddDialogOpen(false);
+              setEditingBudget(null);
+            } else {
+               setAddDialogOpen(true)
+            }
+          }}
+          budget={editingBudget ?? undefined}
+        >
+          <Button onClick={() => setAddDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" /> New Budget
           </Button>
         </AddBudgetDialog>
@@ -140,16 +216,17 @@ export default function BudgetPage() {
           const categoryDetails = categories.find(
             (c) => c.name === item.category
           );
+          const Icon = getIcon(categoryDetails?.icon);
           const progress = item.amount > 0 ? (item.spent / item.amount) * 100 : 0;
           const isOverBudget = item.spent > item.amount;
 
           return (
-            <Card key={item.category}>
+            <Card key={item.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {categoryDetails && (
-                      <categoryDetails.icon className="h-6 w-6 text-primary" />
+                    {Icon && (
+                      <Icon className="h-6 w-6 text-primary" />
                     )}
                     <CardTitle>{item.category}</CardTitle>
                   </div>
@@ -161,34 +238,27 @@ export default function BudgetPage() {
                     >
                       {formatCurrency(item.spent)}
                     </span>
-                    <div onClick={(e) => e.preventDefault()}>
-                      <AddBudgetDialog
-                        budget={item}
-                        open={editingBudget?.id === item.id}
-                        onOpenChange={(isOpen) =>
-                          setEditingBudget(isOpen ? item : null)
-                        }
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() => setEditingBudget(item)}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </AddBudgetDialog>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => setEditingBudget(item)}
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => handleDelete(item.id)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 <CardDescription>

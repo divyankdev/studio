@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import React from 'react';
+import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -47,8 +48,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useSettings } from '@/contexts/settings-context';
-import { users } from '@/lib/data';
-import type { Currency, DateFormat, Language } from '@/lib/definitions';
+import type { Currency, DateFormat, Language, User } from '@/lib/definitions';
+import { fetcher, putData, deleteData } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, {
@@ -73,20 +75,47 @@ const passwordFormSchema = z
     path: ['confirmPassword'],
   });
 
+function SettingsSkeleton() {
+  return (
+    <div className="grid gap-8">
+      {[...Array(5)].map((_, i) => (
+         <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-4 w-2/3 mt-2" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Skeleton className="h-10 w-24" />
+            </CardFooter>
+          </Card>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig();
+  const { data: user, error } = useSWR<User>('/profile', fetcher);
+  
   const { currency, setCurrency, dateFormat, setDateFormat, language, setLanguage } = useSettings();
-  const user = users[0];
-  const [avatarPreview, setAvatarPreview] = React.useState(user.avatarUrl);
+  
+  const [avatarPreview, setAvatarPreview] = React.useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: {
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      email: 'alex@example.com',
+    values: {
+      firstName: user?.name.split(' ')[0] || '',
+      lastName: user?.name.split(' ')[1] || '',
+      email: user?.email || '',
     },
+    resetOptions: {
+      keepDirtyValues: true,
+    }
   });
 
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
@@ -98,10 +127,22 @@ export default function SettingsPage() {
     },
   });
   
+  React.useEffect(() => {
+    if (user) {
+      profileForm.reset({
+        firstName: user.name.split(' ')[0],
+        lastName: user.name.split(' ')[1],
+        email: user.email,
+      });
+      setAvatarPreview(user.avatarUrl);
+    }
+  }, [user, profileForm]);
+
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setAvatarPreview(URL.createObjectURL(file));
+      // In a real app, you would upload the file to the server here.
       toast({
         title: 'Profile Picture Updated',
         description: "Your new profile picture has been set.",
@@ -113,30 +154,55 @@ export default function SettingsPage() {
       fileInputRef.current?.click();
   };
 
-  function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
-    console.log(values);
-    toast({
-      title: 'Profile Updated',
-      description: 'Your profile information has been successfully updated.',
-    });
+  async function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
+    try {
+      const updatedUser = { name: `${values.firstName} ${values.lastName}` };
+      await putData('/profile', updatedUser);
+      mutate('/profile');
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile information has been successfully updated.',
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Update failed' });
+    }
   }
 
-  function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
-    console.log(values);
-    toast({
-      title: 'Password Updated',
-      description: 'Your password has been changed successfully.',
-    });
-    passwordForm.reset();
+  async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
+    try {
+      await putData('/profile/password', {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword
+      });
+      toast({
+        title: 'Password Updated',
+        description: 'Your password has been changed successfully.',
+      });
+      passwordForm.reset();
+    } catch(e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Password update failed' });
+    }
   }
   
-  function onDeleteAccount() {
-     toast({
-      variant: "destructive",
-      title: 'Account Deleted',
-      description: 'Your account has been permanently deleted.',
-    });
+  async function onDeleteAccount() {
+    try {
+      await deleteData('/profile');
+      toast({
+        variant: "destructive",
+        title: 'Account Deleted',
+        description: 'Your account has been permanently deleted.',
+      });
+      // Here you would redirect the user to the login page
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Failed to delete account' });
+    }
   }
+
+  if (error) return <div>Failed to load settings</div>;
+  if (!user) return <SettingsSkeleton />;
 
   return (
     <div>
@@ -159,7 +225,7 @@ export default function SettingsPage() {
                  <div className="flex items-center gap-4">
                     <Avatar className="h-20 w-20">
                         <AvatarImage src={avatarPreview} alt={user.name} data-ai-hint="person avatar" />
-                        <AvatarFallback>AJ</AvatarFallback>
+                        <AvatarFallback>{user.name.slice(0,2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/*" />
                     <Button type="button" variant="outline" onClick={handleAvatarClick}>Change Picture</Button>

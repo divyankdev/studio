@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import useSWR from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -18,11 +19,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { accounts, transactions } from '@/lib/data';
-import type { Category } from '@/lib/definitions';
+import type { Category, Account, Transaction } from '@/lib/definitions';
 import { useSettings } from '@/contexts/settings-context';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { fetcher } from '@/lib/api';
+import { Skeleton } from '../ui/skeleton';
 
 type CategoryTransactionsDialogProps = {
   open: boolean;
@@ -38,9 +40,11 @@ export function CategoryTransactionsDialog({
   accountId,
 }: CategoryTransactionsDialogProps) {
   const { currency, dateFormat } = useSettings();
+  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
+  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
 
   const filteredTransactions = React.useMemo(() => {
-    if (!category) return [];
+    if (!category || !transactions) return [];
 
     const accountFiltered =
       accountId === 'all'
@@ -50,7 +54,7 @@ export function CategoryTransactionsDialog({
     return accountFiltered
       .filter((t) => t.category === category.name)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [category, accountId]);
+  }, [category, accountId, transactions]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', {
@@ -61,7 +65,7 @@ export function CategoryTransactionsDialog({
   const accountName =
     accountId === 'all'
       ? 'All Accounts'
-      : accounts.find((a) => a.id === accountId)?.name;
+      : accounts?.find((a) => a.id === accountId)?.name;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -74,7 +78,11 @@ export function CategoryTransactionsDialog({
         </DialogHeader>
         <ScrollArea className="h-96">
           <div className="pr-4">
-            {filteredTransactions.length > 0 ? (
+            { !transactions || !accounts ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : filteredTransactions.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -111,7 +119,7 @@ export function CategoryTransactionsDialog({
                               : 'text-destructive'
                           )}
                         >
-                          {transaction.type === 'income' ? '+' : ''}{' '}
+                          {transaction.type === 'income' ? '+' : '-'}{' '}
                           {formatCurrency(transaction.amount)}
                         </TableCell>
                       </TableRow>

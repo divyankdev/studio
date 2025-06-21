@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,6 +7,8 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { format, subMonths } from 'date-fns';
+import type { Transaction } from '@/lib/definitions';
 
 const chartConfig = {
   total: {
@@ -14,26 +17,32 @@ const chartConfig = {
   },
 };
 
-export function Overview() {
-  const [data, setData] = React.useState<any[]>([]);
+export function Overview({ transactions }: { transactions: Transaction[] }) {
+  const data = React.useMemo(() => {
+    const now = new Date();
+    // Get data for the last 12 months
+    const monthlyData: { [key: string]: number } = {};
+    
+    for (let i = 11; i >= 0; i--) {
+      const month = subMonths(now, i);
+      const monthKey = format(month, 'yyyy-MM');
+      monthlyData[monthKey] = 0;
+    }
 
-  React.useEffect(() => {
-    const generatedData = [
-      { name: 'Jan', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Feb', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Mar', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Apr', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'May', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Jun', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Jul', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Aug', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Sep', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Oct', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Nov', total: Math.floor(Math.random() * 2000) + 500 },
-      { name: 'Dec', total: Math.floor(Math.random() * 2000) + 500 },
-    ];
-    setData(generatedData);
-  }, []);
+    transactions.forEach(transaction => {
+      if (transaction.type === 'expense') {
+        const monthKey = format(new Date(transaction.date), 'yyyy-MM');
+        if (monthKey in monthlyData) {
+          monthlyData[monthKey] += transaction.amount;
+        }
+      }
+    });
+
+    return Object.entries(monthlyData).map(([month, total]) => ({
+      name: format(new Date(month + '-02'), 'MMM'), // Use day 2 to avoid timezone issues
+      total
+    }));
+  }, [transactions]);
 
   return (
     <ChartContainer config={chartConfig} className="h-[250px] w-full">

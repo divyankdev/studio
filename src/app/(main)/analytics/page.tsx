@@ -1,6 +1,7 @@
 
 'use client';
 import React from 'react';
+import useSWR from 'swr';
 import {
   Card,
   CardContent,
@@ -35,7 +36,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { accounts, transactions } from '@/lib/data';
 import {
   Select,
   SelectContent,
@@ -61,6 +61,9 @@ import {
   isAfter,
 } from 'date-fns';
 import { useSettings } from '@/contexts/settings-context';
+import type { Account, Transaction } from '@/lib/definitions';
+import { fetcher } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const COLORS = [
   '#4780FF',
@@ -71,22 +74,61 @@ const COLORS = [
   '#4BC0C0',
 ];
 
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div>
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <Skeleton className="h-10 w-full sm:w-[180px]" />
+          <Skeleton className="h-10 w-full sm:w-64" />
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-4">
+        <Skeleton className="h-9 w-9" />
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-9 w-9" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+      <Skeleton className="h-96" />
+      <div className="grid gap-6 md:grid-cols-2">
+        <Skeleton className="h-80" />
+        <Skeleton className="h-80" />
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
+  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
+  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
+  
   const [accountId, setAccountId] = React.useState('all');
   const [period, setPeriod] = React.useState<'month' | 'year' | 'all'>(
     'month'
   );
 
   const latestTransactionDate = React.useMemo(() => {
-    if (transactions.length === 0) {
+    if (!transactions || transactions.length === 0) {
       return new Date();
     }
     const dates = transactions.map((t) => new Date(t.date));
     return new Date(Math.max.apply(null, dates.map((d) => d.getTime())));
-  }, []);
+  }, [transactions]);
   
   const [displayDate, setDisplayDate] = React.useState(latestTransactionDate);
   const { currency, dateFormat } = useSettings();
+
+  React.useEffect(() => {
+    setDisplayDate(latestTransactionDate);
+  }, [latestTransactionDate])
 
   const handlePrev = () => {
     if (period === 'month') {
@@ -116,6 +158,15 @@ export default function AnalyticsPage() {
   }, [displayDate, period]);
 
   const analyticsData = React.useMemo(() => {
+    if (!transactions) return {
+      totalSpent: 0,
+      totalIncome: 0,
+      expensePieData: [],
+      incomePieData: [],
+      trendData: [],
+      rangeDescription: '',
+    };
+      
     const accountFilteredTransactions =
       accountId === 'all'
         ? transactions
@@ -245,7 +296,7 @@ export default function AnalyticsPage() {
       trendData,
       rangeDescription,
     };
-  }, [period, accountId, displayDate]);
+  }, [period, accountId, displayDate, transactions]);
 
   const {
     totalSpent,
@@ -261,6 +312,9 @@ export default function AnalyticsPage() {
       style: 'currency',
       currency: currency,
     }).format(value);
+
+  if ((aError || tError)) return <div>Failed to load data.</div>;
+  if (!transactions || !accounts) return <AnalyticsSkeleton />;
 
   return (
     <div className="space-y-4">

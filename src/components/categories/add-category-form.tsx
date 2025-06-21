@@ -16,11 +16,25 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import type { Category } from '@/lib/definitions';
+import { postData, putData } from '@/lib/api';
+import { useSWRConfig } from 'swr';
+import React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { iconMap, getIcon } from '@/lib/icon-map';
 
 const formSchema = z.object({
   name: z.string().min(2, {
     message: 'Category name must be at least 2 characters.',
   }),
+  icon: z.string().min(1, {
+    message: 'Please select an icon.'
+  })
 });
 
 type AddCategoryFormProps = {
@@ -30,21 +44,39 @@ type AddCategoryFormProps = {
 
 export function AddCategoryForm({ category, onFinished }: AddCategoryFormProps) {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: category?.name ?? '',
+      icon: category?.icon ?? '',
     },
   });
+  
+  React.useEffect(() => {
+    if (category) {
+      form.reset(category);
+    }
+  }, [category, form]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: category ? 'Category Updated!' : 'Category Added!',
-      description: `Saved category "${values.name}".`,
-    });
-    onFinished?.();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      if (category) {
+        await putData(`/categories/${category.id}`, values);
+      } else {
+        await postData('/categories', values);
+      }
+      mutate('/categories');
+      toast({
+        title: category ? 'Category Updated!' : 'Category Added!',
+        description: `Saved category "${values.name}".`,
+      });
+      onFinished?.();
+    } catch(e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save category.' });
+    }
   }
 
   return (
@@ -59,6 +91,36 @@ export function AddCategoryForm({ category, onFinished }: AddCategoryFormProps) 
               <FormControl>
                 <Input placeholder="e.g. Groceries" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="icon"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Icon</FormLabel>
+               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an icon" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.keys(iconMap).filter(key => key !== 'default').map((iconName) => {
+                      const Icon = getIcon(iconName);
+                      return (
+                        <SelectItem key={iconName} value={iconName}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {iconName}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
               <FormMessage />
             </FormItem>
           )}

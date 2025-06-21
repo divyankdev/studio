@@ -1,15 +1,22 @@
 
-import { recurring, accounts } from '@/lib/data';
+
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import React from 'react';
 import { useSettings } from '@/contexts/settings-context';
 import { format } from 'date-fns';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/api';
+import type { RecurringTransaction, Account } from '@/lib/definitions';
+import { Skeleton } from '../ui/skeleton';
 
-export function UpcomingRecurring({ accountId }: { accountId: string }) {
+export function UpcomingRecurring({ accountId, accounts }: { accountId: string, accounts: Account[] }) {
   const { currency, dateFormat } = useSettings();
+  const { data: recurring, error } = useSWR<RecurringTransaction[]>('/recurring-transactions', fetcher);
 
   const upcoming = React.useMemo(() => {
+    if (!recurring) return [];
+    
     const filtered = accountId === 'all'
       ? recurring
       : recurring.filter((r) => r.accountId === accountId);
@@ -17,8 +24,14 @@ export function UpcomingRecurring({ accountId }: { accountId: string }) {
     return filtered
       .sort((a, b) => new Date(a.nextDate).getTime() - new Date(b.nextDate).getTime())
       .slice(0, 5);
-  }, [accountId]);
+  }, [accountId, recurring]);
 
+  if (error) return <div>Failed to load upcoming transactions.</div>
+  if (!recurring) return (
+     <div className="space-y-4">
+      {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+    </div>
+  )
 
   return (
     <div className="space-y-4">
