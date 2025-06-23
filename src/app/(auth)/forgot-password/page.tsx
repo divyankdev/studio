@@ -11,17 +11,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader>
           <div className="flex justify-center mb-4">
-             <Logo className="w-12 h-12 text-primary" />
+            <Logo className="w-12 h-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl text-center">Login to ExpenseZero</CardTitle>
+          <CardTitle className="text-2xl text-center">Forgot Password</CardTitle>
           <CardDescription className="text-center">
-            Enter your email below to login to your account
+            Enter your email and we'll send you a link to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -35,31 +35,14 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/forgot-password"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-            <Link href="/dashboard" className="w-full">
-              <Button className="w-full">
-                Login
-              </Button>
-            </Link>
-            <Button variant="outline" className="w-full">
-              Login with Google
+            <Button type="submit" className="w-full">
+              Send Reset Link
             </Button>
           </div>
           <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline">
-              Sign up
+            Remembered your password?{" "}
+            <Link href="/login" className="underline">
+              Sign in
             </Link>
           </div>
         </CardContent>
