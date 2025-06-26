@@ -1,7 +1,6 @@
-
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +30,7 @@ import { fetcher, deleteData } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getIcon, getAccountIcon } from '@/lib/icon-map';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 function CategoriesSkeleton() {
   return (
@@ -58,9 +58,10 @@ function CategoriesSkeleton() {
 export default function CategoriesPage() {
   const { toast } = useToast();
   const { mutate } = useSWRConfig();
-  const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
-  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
-  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
+  const { data: categories, error: cError } = useSWR('/categories', fetcher);
+  const { data: accounts, error: aError } = useSWR('/accounts', fetcher);
+  const { data: transactions, error: tError } = useSWR('/transactions', fetcher);
+  const router = useRouter();
 
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(
@@ -72,7 +73,20 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] =
     React.useState<Category | null>(null);
 
-  const handleDelete = async (categoryId: string) => {
+  // const categories = categoriesData?.data || [];
+  // const accounts = accountsData?.data || [];
+  // const transactions = transactionsData?.data || [];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
+
+  const handleDelete = async (categoryId: number) => {
     try {
       await deleteData(`/categories/${categoryId}`);
       mutate('/categories');
@@ -93,11 +107,11 @@ export default function CategoriesPage() {
     const filteredTransactions =
       accountId === 'all'
         ? transactions
-        : transactions.filter((t) => t.accountId === accountId);
+        : transactions.filter((t: Transaction) => t.accountId === parseInt(accountId));
 
-    return categories.map((category) => {
+    return categories.map((category: Category) => {
       const count = filteredTransactions.filter(
-        (t) => t.category === category.name
+        (t: Transaction) => t.categoryId === category.categoryId
       ).length;
       return { ...category, transactionCount: count };
     });
@@ -127,13 +141,13 @@ export default function CategoriesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Accounts</SelectItem>
-                {accounts?.map((account) => {
-                  const Icon = getAccountIcon(account.type);
+                {accounts?.map((account: Account) => {
+                  const Icon = getAccountIcon(account.accountType);
                   return (
-                    <SelectItem key={account.id} value={account.id}>
+                    <SelectItem key={account.accountId} value={account.accountId.toString()}>
                       <div className="flex items-center gap-2">
                         <Icon className="h-4 w-4" />
-                        {account.name}
+                        {account.accountName}
                       </div>
                     </SelectItem>
                   )
@@ -161,11 +175,12 @@ export default function CategoriesPage() {
       </div>
       {!categories ? <CategoriesSkeleton /> : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {categoryTransactionCounts.map((category) => {
+          {categoryTransactionCounts.map((category: Category & { transactionCount: number }) => {
               const Icon = getIcon(category.icon);
+              console.log(category.icon);
               return (
                 <Card
-                  key={category.id}
+                  key={category.categoryId}
                   className="h-full hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => handleCategoryClick(category)}
                 >
@@ -173,7 +188,7 @@ export default function CategoriesPage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-lg">
                         <Icon className="h-5 w-5 text-primary" />
-                        {category.name}
+                        {category.categoryName}
                       </CardTitle>
                       <div onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -191,7 +206,7 @@ export default function CategoriesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onSelect={() => handleDelete(category.id)}
+                              onSelect={() => handleDelete(category.categoryId)}
                             >
                               Delete
                             </DropdownMenuItem>

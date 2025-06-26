@@ -30,8 +30,8 @@ export function Overview({ transactions }: { transactions: Transaction[] }) {
     }
 
     transactions.forEach(transaction => {
-      if (transaction.type === 'expense') {
-        const monthKey = format(new Date(transaction.date), 'yyyy-MM');
+      if (transaction.transactionType === 'expense') {
+        const monthKey = format(new Date(transaction.transactionDate), 'yyyy-MM');
         if (monthKey in monthlyData) {
           monthlyData[monthKey] += transaction.amount;
         }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,12 +28,13 @@ import {
 import { iconMap, getIcon } from '@/lib/icon-map';
 
 const formSchema = z.object({
-  name: z.string().min(2, {
+  categoryName: z.string().min(2, {
     message: 'Category name must be at least 2 characters.',
   }),
   icon: z.string().min(1, {
     message: 'Please select an icon.'
-  })
+  }),
+  categoryType: z.enum(['income', 'expense'])
 });
 
 type AddCategoryFormProps = {
@@ -49,28 +49,38 @@ export function AddCategoryForm({ category, onFinished }: AddCategoryFormProps) 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: category?.name ?? '',
+      categoryName: category?.categoryName ?? '',
       icon: category?.icon ?? '',
+      categoryType: category?.categoryType ?? 'expense',
     },
   });
   
   React.useEffect(() => {
     if (category) {
-      form.reset(category);
+      form.reset({
+        categoryName: category.categoryName ?? '',
+        icon: category.icon ?? '',
+        categoryType: category.categoryType ?? '',
+      });
     }
   }, [category, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      // const payload = {
+      //   category_name: values.categoryType, // send as category_name
+      //   name: values.name,
+      //   icon: values.icon,
+      // };
       if (category) {
-        await putData(`/categories/${category.id}`, values);
+        await putData(`/categories/${category.categoryId}`, values);
       } else {
         await postData('/categories', values);
       }
       mutate('/categories');
       toast({
         title: category ? 'Category Updated!' : 'Category Added!',
-        description: `Saved category "${values.name}".`,
+        description: `Saved category "${values.categoryName}".`,
       });
       onFinished?.();
     } catch(e) {
@@ -84,13 +94,34 @@ export function AddCategoryForm({ category, onFinished }: AddCategoryFormProps) 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
           control={form.control}
-          name="name"
+          name="categoryName"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category Name</FormLabel>
               <FormControl>
                 <Input placeholder="e.g. Groceries" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="categoryType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category Type</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

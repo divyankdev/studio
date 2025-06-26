@@ -1,197 +1,202 @@
+"use client"
 
-'use client';
-
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { CalendarIcon, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
-import { suggestCategoryAction } from '@/lib/actions';
-import React from 'react';
-import type { Transaction, Account, Category } from '@/lib/definitions';
-import { Checkbox } from '../ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
-import useSWR, { useSWRConfig } from 'swr';
-import { fetcher, postData, putData } from '@/lib/api';
-import { getIcon, getAccountIcon } from '@/lib/icon-map';
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CalendarIcon, Sparkles } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { useToast } from "@/hooks/use-toast"
+import { suggestCategoryAction } from "@/lib/actions"
+import React from "react"
+import type { Transaction, Account, Category, RecurringTransaction } from "@/lib/definitions"
+import { Checkbox } from "../ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
+import useSWR, { useSWRConfig } from "swr"
+import { fetcher, postData, putData } from "@/lib/api"
+import { getIcon, getAccountIcon } from "@/lib/icon-map"
 
 const formSchema = z
   .object({
     description: z.string().min(2, {
-      message: 'Description must be at least 2 characters.',
+      message: "Description must be at least 2 characters.",
     }),
     amount: z.coerce.number().positive({
-      message: 'Amount must be a positive number.',
+      message: "Amount must be a positive number.",
     }),
     date: z.date(),
-    category: z.string().min(1, { message: 'Please select a category.' }),
-    accountId: z.string().min(1, { message: 'Please select an account.' }),
-    type: z.enum(['expense', 'income']),
+    categoryId: z.coerce.number().min(1, { message: "Please select a category." }),
+    accountId: z.coerce.number().min(1, { message: "Please select an account." }),
+    transactionType: z.enum(["expense", "income"]),
     isRecurring: z.boolean().default(false),
-    frequency: z.string().optional(),
+    frequency: z.enum(["daily", "weekly", "bi_weekly", "monthly", "quarterly", "yearly"]).optional(),
     endDate: z.date().optional(),
   })
   .refine(
     (data) => {
       if (data.isRecurring) {
-        return !!data.frequency; // End date is optional
+        return !!data.frequency
       }
-      return true;
+      return true
     },
     {
-      message: 'Frequency is required for recurring transactions.',
-      path: ['frequency'],
-    }
-  );
+      message: "Frequency is required for recurring transactions.",
+      path: ["frequency"],
+    },
+  )
 
 type AddTransactionFormProps = {
-  transaction?: Partial<Transaction>;
-  onFinished?: () => void;
-};
+  transaction?: Partial<Transaction & RecurringTransaction>
+  onFinished?: () => void
+}
 
 export function AddTransactionForm({ transaction, onFinished }: AddTransactionFormProps) {
-  const { toast } = useToast();
-  const { mutate } = useSWRConfig();
-  const [isSuggesting, setIsSuggesting] = React.useState(false);
-  
-  const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
-  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
+  const { toast } = useToast()
+  const { mutate } = useSWRConfig()
+  const [isSuggesting, setIsSuggesting] = React.useState(false)
+
+  const { data: categories, error: cError } = useSWR<Category[]>("/categories", fetcher)
+  const { data: accounts, error: aError } = useSWR<Account[]>("/accounts", fetcher)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      description: transaction?.description ?? '',
+      description: transaction?.description ?? "",
       amount: transaction?.amount ?? undefined,
-      date: transaction?.date ? new Date(transaction.date) : new Date(),
-      category: transaction?.category ?? '',
-      accountId: transaction?.accountId ?? '',
-      type: transaction?.type ?? 'expense',
+      date: transaction?.transactionDate ? new Date(transaction.transactionDate) : new Date(),
+      categoryId: transaction?.categoryId ?? undefined,
+      accountId: transaction?.accountId ?? undefined,
+      transactionType: transaction?.transactionType ?? "expense",
       isRecurring: transaction?.isRecurring ?? false,
-      frequency: transaction?.frequency ?? '',
+      frequency: transaction?.frequency ?? undefined,
       endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
     },
-  });
+  })
 
   React.useEffect(() => {
     if (transaction) {
-        form.reset({
-            description: transaction?.description ?? '',
-            amount: transaction?.amount ?? undefined,
-            date: transaction?.date ? new Date(transaction.date) : new Date(),
-            category: transaction?.category ?? '',
-            accountId: transaction?.accountId ?? '',
-            type: transaction?.type ?? 'expense',
-            isRecurring: transaction?.isRecurring ?? false,
-            frequency: transaction?.frequency ?? '',
-            endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
-        });
+      form.reset({
+        description: transaction?.description ?? "",
+        amount: transaction?.amount ?? undefined,
+        date: transaction?.transactionDate ? new Date(transaction.transactionDate) : new Date(),
+        categoryId: transaction?.categoryId ?? undefined,
+        accountId: transaction?.accountId ?? undefined,
+        transactionType: transaction?.transactionType ?? "expense",
+        isRecurring: transaction?.isRecurring ?? false,
+        frequency: transaction?.frequency ?? undefined,
+        endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
+      })
     }
-  }, [transaction, form]);
+  }, [transaction, form])
 
-
-  const isRecurring = form.watch('isRecurring');
+  const isRecurring = form.watch("isRecurring")
 
   const handleSuggestCategory = async () => {
-    const description = form.getValues('description');
+    const description = form.getValues("description")
     if (!description) {
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter a description first.',
-      });
-      return;
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a description first.",
+      })
+      return
     }
-    setIsSuggesting(true);
+    setIsSuggesting(true)
     try {
-      const result = await suggestCategoryAction(description);
+      const result = await suggestCategoryAction(description)
       if (result.category) {
-        const matchedCategory = categories?.find(
-          (c) => c.name.toLowerCase() === result.category.toLowerCase()
-        );
+        const matchedCategory = categories?.find((c) => c.categoryName.toLowerCase() === result.category.toLowerCase())
         if (matchedCategory) {
-          form.setValue('category', matchedCategory.name);
+          form.setValue("categoryId", matchedCategory.categoryId)
           toast({
-            title: 'Suggestion applied!',
-            description: `We've set the category to "${matchedCategory.name}".`,
-          });
+            title: "Suggestion applied!",
+            description: `We've set the category to "${matchedCategory.categoryName}".`,
+          })
         } else {
           toast({
-            variant: 'destructive',
-            title: 'Suggestion not found',
+            variant: "destructive",
+            title: "Suggestion not found",
             description: `AI suggested "${result.category}", but it's not in your categories list.`,
-          });
+          })
         }
       } else if (result.error) {
         toast({
-          variant: 'destructive',
-          title: 'Error',
+          variant: "destructive",
+          title: "Error",
           description: result.error,
-        });
+        })
       }
     } catch (error) {
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An unexpected error occurred.',
-      });
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred.",
+      })
     } finally {
-      setIsSuggesting(false);
+      setIsSuggesting(false)
     }
-  };
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const endpoint = values.isRecurring ? '/recurring-transactions' : '/transactions';
-    const mutationEndpoints = values.isRecurring ? ['/recurring-transactions', '/transactions'] : ['/transactions'];
-    
-    const dataToSubmit = {
-        ...values,
-        name: values.description, // For recurring transactions
-        nextDate: values.date, // For recurring transactions
-    };
-
     try {
-      if (transaction?.id) {
-        await putData(`${endpoint}/${transaction.id}`, dataToSubmit);
+      if (values.isRecurring) {
+        // For recurring transactions
+        const recurringData = {
+          accountId: values.accountId,
+          categoryId: values.categoryId,
+          amount: values.amount,
+          frequency: values.frequency!,
+          nextDueDate: values.date.toISOString().split("T")[0],
+          description: values.description,
+          isActive: true,
+          transactionType: values.transactionType,
+        }
+
+        if (transaction?.recurringId) {
+          await putData(`/recurring-transactions/${transaction.recurringId}`, recurringData)
+        } else {
+          await postData("/recurring-transactions", recurringData)
+        }
+
+        mutate("/recurring-transactions")
       } else {
-        await postData(endpoint, dataToSubmit);
+        // For regular transactions
+        const transactionData = {
+          accountId: values.accountId,
+          categoryId: values.categoryId,
+          amount: values.amount,
+          transactionType: values.transactionType,
+          description: values.description,
+          transactionDate: values.date.toISOString().split("T")[0],
+        }
+
+        if (transaction?.transactionId) {
+          await putData(`/transactions/${transaction.transactionId}`, transactionData)
+        } else {
+          await postData("/transactions", transactionData)
+        }
+
+        mutate("/transactions")
       }
-      
-      mutationEndpoints.forEach(e => mutate(e));
 
       toast({
-        title: transaction?.id ? 'Transaction Updated!' : 'Transaction Added!',
+        title: transaction?.transactionId || transaction?.recurringId ? "Transaction Updated!" : "Transaction Added!",
         description: `Saved "${values.description}".`,
-      });
-      onFinished?.();
+      })
+      onFinished?.()
     } catch (e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save transaction.'});
+      console.error(e)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save transaction.",
+      })
     }
   }
 
@@ -200,16 +205,12 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="type"
+          name="transactionType"
           render={({ field }) => (
             <FormItem className="space-y-3">
               <FormLabel>Transaction Type</FormLabel>
               <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex space-x-4"
-                >
+                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="expense" />
@@ -254,32 +255,32 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
             </FormItem>
           )}
         />
-         <FormField
+        <FormField
           control={form.control}
           name="accountId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Account</FormLabel>
-               <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an account" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {accounts?.map((acc) => {
-                      const Icon = getAccountIcon(acc.type);
-                      return (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            {acc.name}
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
+              <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an account" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {accounts?.map((acc) => {
+                    const Icon = getAccountIcon(acc.accountType)
+                    return (
+                      <SelectItem key={acc.accountId} value={acc.accountId.toString()}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          {acc.accountName}
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -289,22 +290,15 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
           name="date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>{isRecurring ? 'Start Date' : 'Date of Transaction'}</FormLabel>
+              <FormLabel>{isRecurring ? "Start Date" : "Date of Transaction"}</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full pl-3 text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
+                      variant={"outline"}
+                      className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                     >
-                      {field.value ? (
-                        format(field.value, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
+                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -314,9 +308,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) =>
-                      date > new Date() || date < new Date('1900-01-01')
-                    }
+                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     initialFocus
                   />
                 </PopoverContent>
@@ -327,15 +319,12 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
         />
         <FormField
           control={form.control}
-          name="category"
+          name="categoryId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
               <div className="flex gap-2">
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
+                <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a category" />
@@ -343,12 +332,12 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                   </FormControl>
                   <SelectContent>
                     {categories?.map((cat) => {
-                      const Icon = getIcon(cat.icon);
+                      const Icon = getIcon(cat.icon)
                       return (
-                        <SelectItem key={cat.id} value={cat.name}>
+                        <SelectItem key={cat.categoryId} value={cat.categoryId.toString()}>
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4" />
-                            {cat.name}
+                            {cat.categoryName}
                           </div>
                         </SelectItem>
                       )
@@ -363,9 +352,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                   disabled={isSuggesting}
                   aria-label="Suggest Category"
                 >
-                  <Sparkles
-                    className={cn('h-4 w-4', isSuggesting && 'animate-spin')}
-                  />
+                  <Sparkles className={cn("h-4 w-4", isSuggesting && "animate-spin")} />
                 </Button>
               </div>
               <FormMessage />
@@ -379,16 +366,11 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
               <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel>Is this a recurring transaction?</FormLabel>
-                <FormDescription>
-                  If checked, this will be added to your recurring payments.
-                </FormDescription>
+                <FormDescription>If checked, this will be added to your recurring payments.</FormDescription>
               </div>
             </FormItem>
           )}
@@ -402,20 +384,19 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Frequency</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Daily">Daily</SelectItem>
-                      <SelectItem value="Weekly">Weekly</SelectItem>
-                      <SelectItem value="Monthly">Monthly</SelectItem>
-                      <SelectItem value="Yearly">Yearly</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="bi_weekly">Bi-Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -432,28 +413,16 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
+                          variant={"outline"}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                         >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick an end date</span>
-                          )}
+                          {field.value ? format(field.value, "PPP") : <span>Pick an end date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
@@ -464,9 +433,9 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
         )}
 
         <Button type="submit" className="w-full">
-          {transaction?.id ? 'Save Changes' : 'Add Transaction'}
+          {transaction?.transactionId ? "Save Changes" : "Add Transaction"}
         </Button>
       </form>
     </Form>
-  );
+  )
 }

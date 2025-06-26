@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +25,7 @@ import { fetcher, deleteData } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getIcon } from '@/lib/icon-map';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 function BudgetSkeleton() {
   return (
@@ -77,13 +77,27 @@ function BudgetSkeleton() {
 export default function BudgetPage() {
   const { toast } = useToast();
   const { mutate } = useSWRConfig();
-  const { data: budgets, error: bError } = useSWR<Budget[]>('/budgets', fetcher);
-  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
-  const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
+  const { data: budgetsData, error: bError } = useSWR('/budgets', fetcher);
+  const { data: transactionsData, error: tError } = useSWR('/transactions', fetcher);
+  const { data: categoriesData, error: cError } = useSWR('/categories', fetcher);
+  const router = useRouter();
 
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
   const { currency } = useSettings();
+
+  const budgets = budgetsData?.data || [];
+  const transactions = transactionsData?.data || [];
+  const categories = categoriesData?.data || [];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
 
   const handleDelete = async (budgetId: string) => {
     try {
@@ -105,15 +119,15 @@ export default function BudgetPage() {
 
     const now = new Date();
     const currentMonthTransactions = transactions.filter(
-      (t) => isSameMonth(new Date(t.date), now) && t.type === 'expense'
+      (t: Transaction) => isSameMonth(new Date(t.date), now) && t.type === 'expense'
     );
 
-    const spendingByCategory = currentMonthTransactions.reduce((acc, t) => {
+    const spendingByCategory = currentMonthTransactions.reduce((acc: Record<string, number>, t: Transaction) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
 
-    return budgets.map((b) => {
+    return budgets.map((b: Budget) => {
       const spent = spendingByCategory[b.category] || 0;
       return {
         ...b,

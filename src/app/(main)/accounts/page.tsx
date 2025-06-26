@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +22,7 @@ import { fetcher, deleteData } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getAccountIcon } from '@/lib/icon-map';
+import { useRouter } from 'next/navigation';
 
 function AccountsSkeleton() {
   return (
@@ -46,7 +46,9 @@ function AccountsSkeleton() {
 export default function AccountsPage() {
   const { toast } = useToast();
   const { mutate } = useSWRConfig();
-  const { data: accounts, error } = useSWR<Account[]>('/accounts', fetcher);
+  const { data: accounts, error } = useSWR('/accounts', fetcher);
+  // const accounts = accountsData?.data || [];
+  const router = useRouter();
 
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState<Account | null>(
@@ -54,7 +56,16 @@ export default function AccountsPage() {
   );
   const { currency } = useSettings();
 
-  const handleDelete = async (accountId: string) => {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
+
+  const handleDelete = async (accountId: number) => {
     try {
       await deleteData(`/accounts/${accountId}`);
       mutate('/accounts');
@@ -102,13 +113,13 @@ export default function AccountsPage() {
       {!accounts && !error && <AccountsSkeleton />}
       {accounts && (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {accounts.map((account) => {
-            const Icon = getAccountIcon(account.type);
+          {accounts.map((account: Account) => {
+            const Icon = getAccountIcon(account.accountType);
             return (
-              <Card key={account.id}>
+              <Card key={account.accountId}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-base font-medium">
-                    {account.name}
+                    {account.accountName}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Icon className="h-5 w-5 text-muted-foreground" />
@@ -127,7 +138,7 @@ export default function AccountsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onSelect={() => handleDelete(account.id)}
+                          onSelect={() => handleDelete(account.accountId)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -140,10 +151,10 @@ export default function AccountsPage() {
                     {new Intl.NumberFormat('en-US', {
                       style: 'currency',
                       currency: currency,
-                    }).format(account.balance)}
+                    }).format(account.currentBalance)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {account.type}
+                    {account.accountType}
                   </p>
                 </CardContent>
               </Card>

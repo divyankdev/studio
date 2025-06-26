@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -36,6 +35,7 @@ import { fetcher, deleteData } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getAccountIcon } from '@/lib/icon-map';
+import { useRouter } from 'next/navigation';
 
 function RecurringSkeleton() {
   return (
@@ -77,13 +77,26 @@ function RecurringSkeleton() {
 export default function RecurringPage() {
   const { toast } = useToast();
   const { mutate } = useSWRConfig();
-  const { data: recurring, error: rError } = useSWR<RecurringTransaction[]>('/recurring-transactions', fetcher);
-  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
+  const { data: recurringData, error: rError } = useSWR('/recurring-transactions', fetcher);
+  const { data: accountsData, error: aError } = useSWR('/accounts', fetcher);
   
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<Transaction | null>(null);
   const [accountId, setAccountId] = React.useState('all');
   const { currency, dateFormat } = useSettings();
+  const router = useRouter();
+
+  const recurring = recurringData?.data || [];
+  const accounts = accountsData?.data || [];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -104,7 +117,7 @@ export default function RecurringPage() {
     if (accountId === 'all') {
       return recurring;
     }
-    return recurring.filter((r) => r.accountId === accountId);
+    return recurring.filter((r: RecurringTransaction) => r.accountId === accountId);
   }, [accountId, recurring]);
 
   const formatCurrency = (value: number) =>
@@ -132,7 +145,7 @@ export default function RecurringPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Accounts</SelectItem>
-                {accounts?.map((account) => {
+                {accounts?.map((account: Account) => {
                    const Icon = getAccountIcon(account.type);
                    return (
                     <SelectItem key={account.id} value={account.id}>
@@ -182,7 +195,7 @@ export default function RecurringPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecurring.map((item) => {
+              {filteredRecurring.map((item: RecurringTransaction) => {
                 const account = accounts.find((acc) => acc.id === item.accountId);
                 const nextDate = new Date(item.nextDate);
                 const isNextDateValid = !isNaN(nextDate.getTime());

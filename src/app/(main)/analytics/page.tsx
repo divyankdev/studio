@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR from 'swr';
 import {
   Card,
@@ -64,6 +63,7 @@ import { useSettings } from '@/contexts/settings-context';
 import type { Account, Transaction } from '@/lib/definitions';
 import { fetcher } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 const COLORS = [
   '#4780FF',
@@ -107,9 +107,13 @@ function AnalyticsSkeleton() {
 }
 
 export default function AnalyticsPage() {
-  const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
-  const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
+  const router = useRouter();
+  const { data: transactionsData, error: tError } = useSWR('/transactions', fetcher);
+  const { data: accountsData, error: aError } = useSWR('/accounts', fetcher);
   
+  const transactions = transactionsData?.data || [];
+  const accounts = accountsData?.data || [];
+
   const [accountId, setAccountId] = React.useState('all');
   const [period, setPeriod] = React.useState<'month' | 'year' | 'all'>(
     'month'
@@ -177,13 +181,13 @@ export default function AnalyticsPage() {
     }
 
     const validTransactions = transactions.filter(
-      (t) => t && t.date && !isNaN(new Date(t.date).getTime()) && t.type && typeof t.amount === 'number'
+      (t: Transaction) => t && t.date && !isNaN(new Date(t.date).getTime()) && t.type && typeof t.amount === 'number'
     );
       
     const accountFilteredTransactions =
       accountId === 'all'
         ? validTransactions
-        : validTransactions.filter((t) => t.accountId === accountId);
+        : validTransactions.filter((t: Transaction) => t.accountId === accountId);
 
     let startDate: Date;
     let endDate: Date;
@@ -216,8 +220,8 @@ export default function AnalyticsPage() {
       (t) => new Date(t.date) >= startDate && new Date(t.date) <= endDate
     );
 
-    const expenses = periodTransactions.filter((t) => t.type === 'expense');
-    const income = periodTransactions.filter((t) => t.type === 'income');
+    const expenses = periodTransactions.filter((t: Transaction) => t.type === 'expense');
+    const income = periodTransactions.filter((t: Transaction) => t.type === 'income');
 
     const totalSpent = expenses.reduce((sum, t) => sum + t.amount, 0);
     const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
@@ -252,10 +256,10 @@ export default function AnalyticsPage() {
       trendData = days.map((day) => {
         const dayStr = format(day, 'yyyy-MM-dd');
         const dayExpenses = expenses
-          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
+          .filter((t: Transaction) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
           .reduce((sum, t) => sum + t.amount, 0);
         const dayIncome = income
-          .filter((t) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
+          .filter((t: Transaction) => format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
           .reduce((sum, t) => sum + t.amount, 0);
         return {
           name: format(day, 'd'),
@@ -268,10 +272,10 @@ export default function AnalyticsPage() {
       trendData = months.map((month) => {
         const monthStr = format(month, 'yyyy-MM');
         const monthExpenses = expenses
-          .filter((t) => format(new Date(t.date), 'yyyy-MM') === monthStr)
+          .filter((t: Transaction) => format(new Date(t.date), 'yyyy-MM') === monthStr)
           .reduce((sum, t) => sum + t.amount, 0);
         const monthIncome = income
-          .filter((t) => format(new Date(t.date), 'yyyy-MM') === monthStr)
+          .filter((t: Transaction) => format(new Date(t.date), 'yyyy-MM') === monthStr)
           .reduce((sum, t) => sum + t.amount, 0);
         return {
           name: format(month, 'MMM'),
@@ -288,10 +292,10 @@ export default function AnalyticsPage() {
       );
       trendData = years.map((year) => {
         const yearExpenses = expenses
-          .filter((t) => getYear(new Date(t.date)) === year)
+          .filter((t: Transaction) => getYear(new Date(t.date)) === year)
           .reduce((sum, t) => sum + t.amount, 0);
         const yearIncome = income
-          .filter((t) => getYear(new Date(t.date)) === year)
+          .filter((t: Transaction) => getYear(new Date(t.date)) === year)
           .reduce((sum, t) => sum + t.amount, 0);
         return {
           name: String(year),
@@ -326,6 +330,15 @@ export default function AnalyticsPage() {
       currency: currency,
     }).format(value);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
+
   if ((aError || tError)) return <div>Failed to load data.</div>;
   if (!transactions || !accounts) return <AnalyticsSkeleton />;
 
@@ -345,7 +358,7 @@ export default function AnalyticsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Accounts</SelectItem>
-              {accounts.map((account) => (
+              {accounts.map((account: Account) => (
                 <SelectItem key={account.id} value={account.id}>
                   {account.name}
                 </SelectItem>

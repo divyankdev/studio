@@ -57,7 +57,7 @@ export default function TransactionsClientPage() {
       filters.push({ id: 'category', value: categoryFilter });
     }
     if (accountFilter && accountFilter !== 'all' && accounts) {
-      const account = accounts.find(acc => acc.id === accountFilter);
+      const account = accounts.find(acc => acc.accountId === Number(accountFilter));
       if (account) {
         filters.push({ id: 'accountId', value: account.name });
       }

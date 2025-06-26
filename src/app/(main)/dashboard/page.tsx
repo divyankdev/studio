@@ -1,7 +1,6 @@
-
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR from 'swr';
 import {
   Card,
@@ -26,6 +25,7 @@ import { fetcher } from '@/lib/api';
 import type { Transaction, Account } from '@/lib/definitions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getAccountIcon } from '@/lib/icon-map';
+import { useRouter } from 'next/navigation';
 
 function DashboardSkeleton() {
   return (
@@ -36,7 +36,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-32" />
+          <Skeleton key={`skeleton-card-${i}`} className="h-32" />
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -55,7 +55,7 @@ function DashboardSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
+              <div key={`skeleton-transaction-${i}`} className="flex items-center gap-4">
                 <Skeleton className="h-9 w-9 rounded-full" />
                 <div className="space-y-1 flex-1">
                   <Skeleton className="h-4 w-3/4" />
@@ -75,7 +75,7 @@ function DashboardSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
+              <div key={`skeleton-recurring-${i}`} className="flex items-center gap-4">
                 <div className="space-y-1 flex-1">
                   <Skeleton className="h-4 w-1/4" />
                   <Skeleton className="h-4 w-1/3" />
@@ -94,28 +94,36 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [accountId, setAccountId] = React.useState('all');
   const { currency } = useSettings();
 
-  const { data: transactionsData, error: transactionsError } = useSWR<Transaction[]>('/transactions', fetcher);
-  const { data: accountsData, error: accountsError } = useSWR<Account[]>('/accounts', fetcher);
+  const { data: transactions, error: transactionsError } = useSWR('/transactions', fetcher);
+  const { data: accounts, error: accountsError } = useSWR('/accounts', fetcher);
   
-  const transactions = transactionsData || [];
-  const accounts = accountsData || [];
+  // Ensure data is always an array to prevent runtime errors
+  // const transactions = Array.isArray(transactionsData?.data) ? transactionsData.data : [];
+  // const accounts = Array.isArray(accountsData?.data) ? accountsData.data : [];
   
   const filteredTransactions = React.useMemo(() => {
+    // Ensure we have an array before filtering
+    if (!Array.isArray(transactions)) {
+      return [];
+    }
+    
     if (accountId === 'all') {
       return transactions;
     }
-    return transactions.filter((t) => t.accountId === accountId);
+    // console.log(transactions);
+    return transactions.filter((t: Transaction) => String(t.accountId) === String(accountId));
   }, [accountId, transactions]);
 
   const totalIncome = filteredTransactions
-    .filter((t) => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0);
+    .filter((t: Transaction) => t.transactionType === 'income')
+    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
   const totalExpenses = filteredTransactions
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0);
+    .filter((t: Transaction) => t.transactionType === 'expense')
+    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
   const netBalance = totalIncome - totalExpenses;
 
   const formatCurrency = (value: number) => {
@@ -125,8 +133,30 @@ export default function DashboardPage() {
     }).format(value);
   };
   
-  if (transactionsError || accountsError) return <div>Failed to load data</div>;
-  if (!transactionsData || !accountsData) return <DashboardSkeleton />;
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.replace('/login');
+      }
+    }
+  }, [router]);
+
+  // Better error handling
+  if (transactionsError || accountsError) {
+    console.error('API Error:', { transactionsError, accountsError });
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Card className="p-6">
+          <CardContent>
+            <p className="text-destructive">Failed to load dashboard data. Please try refreshing the page.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+    if (!transactions || !accounts) return <DashboardSkeleton />;
 
   return (
     <div className="flex-1 space-y-4">
@@ -139,13 +169,13 @@ export default function DashboardPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Accounts</SelectItem>
-              {accounts.map((account) => {
-                 const Icon = getAccountIcon(account.type);
+              {accounts.map((account: Account) => {
+                 const Icon = getAccountIcon(account.accountType);
                  return (
-                    <SelectItem key={account.id} value={account.id}>
+                    <SelectItem key={account.accountId} value={String(account.accountId)}>
                       <div className="flex items-center gap-2">
                         <Icon className="h-4 w-4" />
-                        {account.name}
+                        {account.accountName}
                       </div>
                     </SelectItem>
                  )
@@ -213,7 +243,8 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentTransactions transactions={transactions} accounts={accounts} accountId={accountId} />
+            {/* FIXED: Changed from transactions to filteredTransactions */}
+            <RecentTransactions transactions={filteredTransactions} accounts={accounts} accountId={accountId} />
           </CardContent>
         </Card>
       </div>

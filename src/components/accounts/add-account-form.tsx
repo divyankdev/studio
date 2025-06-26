@@ -28,11 +28,11 @@ import { useSWRConfig } from 'swr';
 import React from 'react';
 
 const formSchema = z.object({
-  name: z.string().min(2, {
+  accountName: z.string().min(2, {
     message: 'Account name must be at least 2 characters.',
   }),
-  type: z.enum(['Checking', 'Savings', 'Credit Card', 'Wallet']),
-  balance: z.coerce.number(),
+  accountType: z.enum(['bank_account', 'credit_card', 'cash', 'debit_card', 'e_wallet']),
+  currentBalance: z.coerce.number(),
 });
 
 type AddAccountFormProps = {
@@ -47,9 +47,9 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: account?.name ?? '',
-      type: account?.type ?? 'Checking',
-      balance: account?.balance ?? 0,
+      accountName: account?.accountName ?? '',
+      accountType: account?.accountType ?? 'bank_account',
+      currentBalance: account?.currentBalance ?? 0,
     },
   });
 
@@ -62,14 +62,14 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       if (account) {
-        await putData(`/accounts/${account.id}`, values);
+        await putData(`/accounts/${account.accountId}`, values);
       } else {
         await postData('/accounts', values);
       }
       mutate('/accounts'); // Revalidate the accounts list
       toast({
         title: account ? 'Account Updated!' : 'Account Added!',
-        description: `Saved account "${values.name}".`,
+        description: `Saved account "${values.accountName}".`,
       });
       onFinished?.();
     } catch (error) {
@@ -87,7 +87,7 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
           control={form.control}
-          name="name"
+          name="accountName"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Account Name</FormLabel>
@@ -100,7 +100,7 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
         />
         <FormField
           control={form.control}
-          name="type"
+          name="accountType"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Account Type</FormLabel>
@@ -111,10 +111,11 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Checking">Checking</SelectItem>
-                  <SelectItem value="Savings">Savings</SelectItem>
-                  <SelectItem value="Credit Card">Credit Card</SelectItem>
-                  <SelectItem value="Wallet">Wallet</SelectItem>
+                  <SelectItem value="bank_account">Bank Account</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="debit_card">Debit Card</SelectItem>
+                  <SelectItem value="eWallet">E-Wallet</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -123,7 +124,7 @@ export function AddAccountForm({ account, onFinished }: AddAccountFormProps) {
         />
         <FormField
           control={form.control}
-          name="balance"
+          name="currentBalance"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Current Balance</FormLabel>
