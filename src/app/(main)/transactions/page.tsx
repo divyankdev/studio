@@ -1,7 +1,6 @@
-
-import React, { Suspense } from 'react';
-import TransactionsClientPage from './transactions-client';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Suspense } from "react"
+import TransactionsClientPage from "./transactions-client"
+import { Skeleton } from "@/components/ui/skeleton"
 
 function TransactionsPageSkeleton() {
   return (
@@ -15,20 +14,20 @@ function TransactionsPageSkeleton() {
       </div>
       <div className="space-y-4">
         <div className="flex items-center gap-2 flex-wrap">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-10 w-[260px]" />
-            <Skeleton className="h-10 w-[180px]" />
-            <Skeleton className="h-10 w-[180px]" />
-            <Skeleton className="h-10 w-[120px]" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-[260px]" />
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[120px]" />
         </div>
         <Skeleton className="h-96 w-full rounded-md border" />
         <div className="flex items-center justify-end space-x-2 py-4">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-16" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-16" />
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 export default function TransactionsPage() {
@@ -36,5 +35,5 @@ export default function TransactionsPage() {
     <Suspense fallback={<TransactionsPageSkeleton />}>
       <TransactionsClientPage />
     </Suspense>
-  );
+  )
 }

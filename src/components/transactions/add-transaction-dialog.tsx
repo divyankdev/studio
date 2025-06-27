@@ -1,4 +1,4 @@
-'use client';
+"use client"
 import {
   Dialog,
   DialogContent,
@@ -6,33 +6,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { AddTransactionForm } from './add-expense-form';
-import type { Transaction } from '@/lib/definitions';
+} from "@/components/ui/dialog"
+import type React from "react"
+
+import { AddTransactionForm } from "./add-expense-form"
+import type { Transaction } from "@/lib/definitions"
 
 type AddTransactionDialogProps = {
-  transaction?: Transaction;
-  children: React.ReactNode;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
+  transaction?: Transaction
+  children: React.ReactNode
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
 
-export function AddTransactionDialog({
-  transaction,
-  children,
-  open,
-  onOpenChange,
-}: AddTransactionDialogProps) {
+export function AddTransactionDialog({ transaction, children, open, onOpenChange }: AddTransactionDialogProps) {
   const handleFinished = () => {
-    onOpenChange(false);
-  };
+    onOpenChange(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{transaction ? 'Edit Transaction' : 'Add a New Transaction'}</DialogTitle>
+          <DialogTitle>{transaction ? "Edit Transaction" : "Add a New Transaction"}</DialogTitle>
           <DialogDescription>
             {transaction
               ? "Update the details of your transaction below."
@@ -44,5 +41,5 @@ export function AddTransactionDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

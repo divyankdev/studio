@@ -64,18 +64,22 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
   const { data: categories, error: cError } = useSWR<Category[]>("/categories", fetcher)
   const { data: accounts, error: aError } = useSWR<Account[]>("/accounts", fetcher)
 
+  const isRecurringTransaction = transaction && "recurringId" in transaction
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: transaction?.description ?? "",
       amount: transaction?.amount ?? undefined,
-      date: transaction?.transactionDate ? new Date(transaction.transactionDate) : new Date(),
+      date: isRecurringTransaction
+        ? new Date((transaction as RecurringTransaction).nextDueDate)
+        : transaction
+          ? new Date((transaction as Transaction).transactionDate)
+          : new Date(),
       categoryId: transaction?.categoryId ?? undefined,
       accountId: transaction?.accountId ?? undefined,
       transactionType: transaction?.transactionType ?? "expense",
-      isRecurring: transaction?.isRecurring ?? false,
-      frequency: transaction?.frequency ?? undefined,
-      endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
+      isRecurring: isRecurringTransaction ?? false,
+      frequency: isRecurringTransaction ? (transaction as RecurringTransaction).frequency : undefined,
     },
   })
 
@@ -88,7 +92,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
         categoryId: transaction?.categoryId ?? undefined,
         accountId: transaction?.accountId ?? undefined,
         transactionType: transaction?.transactionType ?? "expense",
-        isRecurring: transaction?.isRecurring ?? false,
+        isRecurring: isRecurringTransaction ?? false,
         frequency: transaction?.frequency ?? undefined,
         endDate: transaction?.endDate ? new Date(transaction.endDate) : undefined,
       })

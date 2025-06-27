@@ -1,31 +1,18 @@
-'use client';
+"use client"
 
-import React, { useEffect } from 'react';
-import useSWR from 'swr';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { DollarSign, ArrowUp, ArrowDown, Repeat } from 'lucide-react';
-import { Overview } from '@/components/dashboard/overview';
-import { RecentTransactions } from '@/components/dashboard/recent-sales';
-import { UpcomingRecurring } from '@/components/dashboard/upcoming-recurring';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useSettings } from '@/contexts/settings-context';
-import { fetcher } from '@/lib/api';
-import type { Transaction, Account } from '@/lib/definitions';
-import { Skeleton } from '@/components/ui/skeleton';
-import { getAccountIcon } from '@/lib/icon-map';
-import { useRouter } from 'next/navigation';
+import React from "react"
+import useSWR from "swr"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DollarSign, ArrowUp, ArrowDown, Repeat } from "lucide-react"
+import { Overview } from "@/components/dashboard/overview"
+import { RecentTransactions } from "@/components/dashboard/recent-sales"
+import { UpcomingRecurring } from "@/components/dashboard/upcoming-recurring"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSettings } from "@/contexts/settings-context"
+import { fetcher } from "@/lib/api"
+import type { Transaction, Account } from "@/lib/definitions"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getAccountIcon } from "@/lib/icon-map"
 
 function DashboardSkeleton() {
   return (
@@ -90,61 +77,44 @@ function DashboardSkeleton() {
         </Card>
       </div>
     </div>
-  );
+  )
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [accountId, setAccountId] = React.useState('all');
-  const { currency } = useSettings();
+  const [accountId, setAccountId] = React.useState("all")
+  const { currency } = useSettings()
 
-  const { data: transactions, error: transactionsError } = useSWR('/transactions', fetcher);
-  const { data: accounts, error: accountsError } = useSWR('/accounts', fetcher);
-  
-  // Ensure data is always an array to prevent runtime errors
-  // const transactions = Array.isArray(transactionsData?.data) ? transactionsData.data : [];
-  // const accounts = Array.isArray(accountsData?.data) ? accountsData.data : [];
-  
+  const { data: transactions, error: transactionsError } = useSWR("/transactions", fetcher)
+  const { data: accounts, error: accountsError } = useSWR("/accounts", fetcher)
+
   const filteredTransactions = React.useMemo(() => {
-    // Ensure we have an array before filtering
     if (!Array.isArray(transactions)) {
-      return [];
+      return []
     }
-    
-    if (accountId === 'all') {
-      return transactions;
+
+    if (accountId === "all") {
+      return transactions
     }
-    // console.log(transactions);
-    return transactions.filter((t: Transaction) => String(t.accountId) === String(accountId));
-  }, [accountId, transactions]);
+    return transactions.filter((t: Transaction) => String(t.accountId) === String(accountId))
+  }, [accountId, transactions])
 
   const totalIncome = filteredTransactions
-    .filter((t: Transaction) => t.transactionType === 'income')
-    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
+    .filter((t: Transaction) => t.transactionType === "income")
+    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0)
   const totalExpenses = filteredTransactions
-    .filter((t: Transaction) => t.transactionType === 'expense')
-    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
-  const netBalance = totalIncome - totalExpenses;
+    .filter((t: Transaction) => t.transactionType === "expense")
+    .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0)
+  const netBalance = totalIncome - totalExpenses
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
       currency: currency,
-    }).format(value);
-  };
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        router.replace('/login');
-      }
-    }
-  }, [router]);
+    }).format(value)
+  }
 
-  // Better error handling
   if (transactionsError || accountsError) {
-    console.error('API Error:', { transactionsError, accountsError });
+    console.error("API Error:", { transactionsError, accountsError })
     return (
       <div className="flex-1 flex items-center justify-center">
         <Card className="p-6">
@@ -153,14 +123,14 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-    );
+    )
   }
-  
-    if (!transactions || !accounts) return <DashboardSkeleton />;
+
+  if (!transactions || !accounts) return <DashboardSkeleton />
 
   return (
     <div className="flex-1 space-y-4">
-       <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="w-[200px]">
           <Select value={accountId} onValueChange={setAccountId}>
@@ -170,16 +140,16 @@ export default function DashboardPage() {
             <SelectContent>
               <SelectItem value="all">All Accounts</SelectItem>
               {accounts.map((account: Account) => {
-                 const Icon = getAccountIcon(account.accountType);
-                 return (
-                    <SelectItem key={account.accountId} value={String(account.accountId)}>
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {account.accountName}
-                      </div>
-                    </SelectItem>
-                 )
-                })}
+                const Icon = getAccountIcon(account.accountType)
+                return (
+                  <SelectItem key={account.accountId} value={String(account.accountId)}>
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4" />
+                      {account.accountName}
+                    </div>
+                  </SelectItem>
+                )
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -191,12 +161,8 @@ export default function DashboardPage() {
             <ArrowUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {formatCurrency(totalIncome)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              In the current period
-            </p>
+            <div className="text-2xl font-bold text-green-500">{formatCurrency(totalIncome)}</div>
+            <p className="text-xs text-muted-foreground">In the current period</p>
           </CardContent>
         </Card>
         <Card>
@@ -205,12 +171,8 @@ export default function DashboardPage() {
             <ArrowDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(totalExpenses)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              In the current period
-            </p>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</div>
+            <p className="text-xs text-muted-foreground">In the current period</p>
           </CardContent>
         </Card>
         <Card>
@@ -220,9 +182,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(netBalance)}</div>
-            <p className="text-xs text-muted-foreground">
-              Balance for this month
-            </p>
+            <p className="text-xs text-muted-foreground">Balance for this month</p>
           </CardContent>
         </Card>
       </div>
@@ -238,26 +198,21 @@ export default function DashboardPage() {
         <Card className="col-span-4 lg:col-span-3">
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>
-              You had {filteredTransactions.length} transactions this month.
-            </CardDescription>
+            <CardDescription>You had {filteredTransactions.length} transactions this month.</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* FIXED: Changed from transactions to filteredTransactions */}
             <RecentTransactions transactions={filteredTransactions} accounts={accounts} accountId={accountId} />
           </CardContent>
         </Card>
       </div>
-       <div className="grid gap-4">
+      <div className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Repeat className="h-5 w-5" />
               Upcoming Recurring Transactions
             </CardTitle>
-            <CardDescription>
-              A look at your upcoming bills and income.
-            </CardDescription>
+            <CardDescription>A look at your upcoming bills and income.</CardDescription>
           </CardHeader>
           <CardContent>
             <UpcomingRecurring accountId={accountId} accounts={accounts} />
@@ -265,5 +220,5 @@ export default function DashboardPage() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

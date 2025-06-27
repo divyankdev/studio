@@ -5,7 +5,7 @@ export type AccountType = 'bank_account' | 'credit_card' | 'cash' | 'debit_card'
 export type CategoryType = 'income' | 'expense';
 export type FrequencyType = 'daily' | 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly' | 'yearly';
 export type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-export type TransactionType = 'income' | 'expense' | 'transfer';
+export type TransactionType = 'income' | 'expense' ;
 
 // User types
 export type User = {
