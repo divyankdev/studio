@@ -12,6 +12,7 @@ import {
   Landmark,
   CreditCard,
   Wallet,
+  Banknote,
   DollarSign,
   type LucideIcon,
   HelpCircle,
@@ -45,10 +46,12 @@ export const getIcon = (iconName: string | undefined): LucideIcon => {
 
 
 export const accountIconMap: { [key: string]: LucideIcon } = {
-  "Checking": Landmark,
-  "Savings": Landmark,
+  "Bank Account": Landmark,
+  // "Savings": Landmark,
   "Credit Card": CreditCard,
-  "Wallet": Wallet,
+  "Debit Card": CreditCard,
+  "E-Wallet": Wallet,
+  "Cash": Banknote,
   "default": HelpCircle,
 }
 

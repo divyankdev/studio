@@ -27,16 +27,14 @@ export function AddTransactionDialog({ transaction, children, open, onOpenChange
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{transaction ? "Edit Transaction" : "Add a New Transaction"}</DialogTitle>
           <DialogDescription>
-            {transaction
-              ? "Update the details of your transaction below."
-              : "Fill in the details of your transaction below. Use the magic wand to get an AI-powered category suggestion!"}
+          {transaction ? "Update your transaction details." : "Add a new income or expense transaction."}
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-2">
           <AddTransactionForm transaction={transaction} onFinished={handleFinished} />
         </div>
       </DialogContent>

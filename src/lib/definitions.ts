@@ -55,12 +55,12 @@ export type Transaction = {
   transactionId: number;
   userId: number;
   accountId: number;
-  accountName?: string;
-  categoryId?: number;
-  categoryName?: string;
+  accountName: string;
+  categoryId: number;
+  categoryName: string;
   amount: number;
   transactionType: TransactionType;
-  description?: string;
+  description: string;
   transactionDate: string; // ISO date string
   createdAt: string;
   updatedAt: string;

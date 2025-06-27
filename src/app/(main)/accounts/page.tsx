@@ -10,8 +10,9 @@ import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
 import { useSettings } from "@/contexts/settings-context"
 import { fetcher, deleteData } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/hooks/use-toast"
 import { getAccountIcon } from "@/lib/icon-map"
+import { handleError, handleApiCall } from "@/lib/error-handler"
+import { accountTypeMap } from "@/constants/label"
 
 function AccountsSkeleton() {
   return (
@@ -33,7 +34,6 @@ function AccountsSkeleton() {
 }
 
 export default function AccountsPage() {
-  const { toast } = useToast()
   const { mutate } = useSWRConfig()
   const { data: accounts, error } = useSWR("/accounts", fetcher)
 
@@ -42,18 +42,30 @@ export default function AccountsPage() {
   const { currency } = useSettings()
 
   const handleDelete = async (accountId: number) => {
-    try {
-      await deleteData(`/accounts/${accountId}`)
+    const result = await handleApiCall(
+      () => deleteData(`/accounts/${accountId}`),
+      "Account deleted successfully",
+      "Failed to delete account",
+    )
+
+    if (result) {
       mutate("/accounts")
-      toast({ title: "Account deleted successfully" })
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error deleting account",
-        description: "Please try again.",
-      })
     }
+  }
+
+  // Handle error state
+  if (error) {
+    handleError(error, "Failed to load accounts")
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-muted-foreground">Failed to load accounts</p>
+          <Button onClick={() => mutate("/accounts")} className="mt-2">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -81,12 +93,12 @@ export default function AccountsPage() {
         </AddAccountDialog>
       </div>
 
-      {error && <div className="text-red-500">Failed to load accounts.</div>}
-      {!accounts && !error && <AccountsSkeleton />}
-      {accounts && (
+      {!accounts ? (
+        <AccountsSkeleton />
+      ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account: Account) => {
-            const Icon = getAccountIcon(account.accountType)
+            const Icon = getAccountIcon(accountTypeMap[account.accountType])
             return (
               <Card key={account.accountId}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

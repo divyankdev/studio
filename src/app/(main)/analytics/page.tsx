@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import useSWR from "swr"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
@@ -42,7 +42,7 @@ import type { Account, Transaction } from "@/lib/definitions"
 import { fetcher } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
 
-const COLORS = ["#4780FF", "#9447FF", "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"]
+const COLORS = ["#4780FF", "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9447FF", "#FF9F40", "#FF6384"]
 
 function AnalyticsSkeleton() {
   return (
@@ -76,17 +76,42 @@ function AnalyticsSkeleton() {
   )
 }
 
+// Custom label component for pie chart
+const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value }: any) => {
+  const RADIAN = Math.PI / 180
+  const radius = innerRadius + (outerRadius - innerRadius) * 1.4
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+  if (percent < 0.02) return null // Don't show labels for very small segments
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#666"
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={500}
+    >
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  )
+}
+
 export default function AnalyticsPage() {
-  const { data: transactionsData, error: tError } = useSWR("/transactions", fetcher)
-  const { data: accountsData, error: aError } = useSWR("/accounts", fetcher)
+  const { data: transactions, error: tError } = useSWR("/transactions", fetcher)
+  const { data: accounts, error: aError } = useSWR("/accounts", fetcher)
+  const { data: recurring, error: rError } = useSWR("/recurring-transactions", fetcher)
 
-  const transactions = transactionsData?.data || []
-  const accounts = accountsData?.data || []
+  const [accountId, setAccountId] = useState("all")
+  const [period, setPeriod] = useState<"month" | "year" | "all">("month")
+  const [displayDate, setDisplayDate] = useState(new Date())
 
-  const [accountId, setAccountId] = React.useState("all")
-  const [period, setPeriod] = React.useState<"month" | "year" | "all">("month")
+  const { currency, dateFormat } = useSettings()
 
-  const latestTransactionDate = React.useMemo(() => {
+  const latestTransactionDate = useMemo(() => {
     if (!transactions || transactions.length === 0) {
       return new Date()
     }
@@ -101,15 +126,16 @@ export default function AnalyticsPage() {
     return new Date(Math.max(...dates.map((d: Date) => d.getTime())))
   }, [transactions])
 
-  const [displayDate, setDisplayDate] = React.useState(() => new Date())
-  const { currency, dateFormat } = useSettings()
+  const hasSetInitialDate = useRef(false)
 
-  // Fix the infinite loop by using useEffect properly
   useEffect(() => {
-    setDisplayDate(latestTransactionDate)
+    if (!hasSetInitialDate.current) {
+      setDisplayDate(latestTransactionDate)
+      hasSetInitialDate.current = true
+    }
   }, [latestTransactionDate])
 
-  const handlePrev = React.useCallback(() => {
+  const handlePrev = useCallback(() => {
     if (period === "month") {
       setDisplayDate((prev) => subMonths(prev, 1))
     } else if (period === "year") {
@@ -117,7 +143,7 @@ export default function AnalyticsPage() {
     }
   }, [period])
 
-  const handleNext = React.useCallback(() => {
+  const handleNext = useCallback(() => {
     if (period === "month") {
       setDisplayDate((prev) => addMonths(prev, 1))
     } else if (period === "year") {
@@ -125,7 +151,7 @@ export default function AnalyticsPage() {
     }
   }, [period])
 
-  const isFutureDisabled = React.useMemo(() => {
+  const isFutureDisabled = useMemo(() => {
     const now = new Date()
     if (period === "month") {
       return isAfter(startOfMonth(displayDate), startOfMonth(now))
@@ -136,8 +162,8 @@ export default function AnalyticsPage() {
     return false
   }, [displayDate, period])
 
-  const analyticsData = React.useMemo(() => {
-    if (!transactions) {
+  const analyticsData = useMemo(() => {
+    if (!transactions || !Array.isArray(transactions)) {
       return {
         totalSpent: 0,
         totalIncome: 0,
@@ -154,14 +180,15 @@ export default function AnalyticsPage() {
         t.transactionDate &&
         !isNaN(new Date(t.transactionDate).getTime()) &&
         t.transactionType &&
-        typeof t.amount === "number",
+        !isNaN(Number(t.amount)) &&
+        t.categoryName,
     )
 
     const accountFilteredTransactions =
       accountId === "all"
         ? validTransactions
         : validTransactions.filter((t: Transaction) => t.accountId === Number.parseInt(accountId))
-
+    // console.log('Account transaction', accountFilteredTransactions)
     let startDate: Date
     let endDate: Date
     let trendInterval: "day" | "month" | "year"
@@ -181,7 +208,6 @@ export default function AnalyticsPage() {
       trendInterval = "month"
       rangeDescription = `in ${format(displayDate, "yyyy")}`
     } else {
-      // 'all'
       const allDates = validTransactions.map((t: Transaction) => new Date(t.transactionDate))
       startDate = allDates.length > 0 ? min(allDates) : startOfYear(now)
       endDate = now
@@ -195,34 +221,43 @@ export default function AnalyticsPage() {
 
     const expenses = periodTransactions.filter((t: Transaction) => t.transactionType === "expense")
     const income = periodTransactions.filter((t: Transaction) => t.transactionType === "income")
-
-    const totalSpent = expenses.reduce((sum, t) => sum + t.amount, 0)
-    const totalIncome = income.reduce((sum, t) => sum + t.amount, 0)
-
+    console.log('Expenses', expenses)
+    const totalSpent = expenses.reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
+    const totalIncome = income.reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
+    // console.log('Totoal Income' , totalIncome)
     const expenseCategoryBreakdown = expenses.reduce(
-      (acc, t) => {
-        acc[t.categoryName] = (acc[t.categoryName] || 0) + t.amount
+      (acc: Record<string, number>, t: Transaction) => {
+        const categoryName = t.categoryName || "Other"
+        acc[categoryName] = (acc[categoryName] || 0) + Number(t.amount)
         return acc
       },
       {} as Record<string, number>,
     )
 
     const incomeCategoryBreakdown = income.reduce(
-      (acc, t) => {
-        acc[t.categoryName] = (acc[t.categoryName] || 0) + t.amount
+      (acc: Record<string, number>, t: Transaction) => {
+        const categoryName = t.categoryName || "Other"
+        acc[categoryName] = (acc[categoryName] || 0) + Number(t.amount)
         return acc
       },
       {} as Record<string, number>,
     )
 
-    const expensePieData = Object.entries(expenseCategoryBreakdown).map(([name, value]) => ({
-      name,
-      value,
-    }))
-    const incomePieData = Object.entries(incomeCategoryBreakdown).map(([name, value]) => ({
-      name,
-      value,
-    }))
+    const expensePieData = Object.entries(expenseCategoryBreakdown)
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+
+    const incomePieData = Object.entries(incomeCategoryBreakdown)
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value)
 
     let trendData: { name: string; expense: number; income: number }[] = []
 
@@ -232,10 +267,10 @@ export default function AnalyticsPage() {
         const dayStr = format(day, "yyyy-MM-dd")
         const dayExpenses = expenses
           .filter((t: Transaction) => format(new Date(t.transactionDate), "yyyy-MM-dd") === dayStr)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         const dayIncome = income
           .filter((t: Transaction) => format(new Date(t.transactionDate), "yyyy-MM-dd") === dayStr)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         return {
           name: format(day, "d"),
           expense: dayExpenses,
@@ -248,10 +283,10 @@ export default function AnalyticsPage() {
         const monthStr = format(month, "yyyy-MM")
         const monthExpenses = expenses
           .filter((t: Transaction) => format(new Date(t.transactionDate), "yyyy-MM") === monthStr)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         const monthIncome = income
           .filter((t: Transaction) => format(new Date(t.transactionDate), "yyyy-MM") === monthStr)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         return {
           name: format(month, "MMM"),
           expense: monthExpenses,
@@ -265,10 +300,10 @@ export default function AnalyticsPage() {
       trendData = years.map((year) => {
         const yearExpenses = expenses
           .filter((t: Transaction) => getYear(new Date(t.transactionDate)) === year)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         const yearIncome = income
           .filter((t: Transaction) => getYear(new Date(t.transactionDate)) === year)
-          .reduce((sum, t) => sum + t.amount, 0)
+          .reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0)
         return {
           name: String(year),
           expense: yearExpenses,
@@ -289,7 +324,7 @@ export default function AnalyticsPage() {
 
   const { totalSpent, totalIncome, expensePieData, incomePieData, trendData, rangeDescription } = analyticsData
 
-  const formatCurrency = React.useCallback(
+  const formatCurrency = useCallback(
     (value: number) =>
       new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -391,7 +426,7 @@ export default function AnalyticsPage() {
               <CardDescription>A comparison of your income and expenses {rangeDescription}.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{}} className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height={350}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={trendData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -418,7 +453,7 @@ export default function AnalyticsPage() {
                     <Line type="monotone" dataKey="income" name="Income" stroke="hsl(var(--primary))" strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </ChartContainer>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>
@@ -429,30 +464,38 @@ export default function AnalyticsPage() {
               <CardDescription>Spending by category {rangeDescription}.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{}} className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={expensePieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {expensePieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      content={<ChartTooltipContent hideLabel nameKey="name" />}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              {expensePieData.length > 0 ? (
+                <ChartContainer config={{}} className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
+                      <Pie
+                        data={expensePieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={CustomLabel}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
+                      >
+                        {expensePieData.map((entry, index) => (
+                          <Cell key={`expense-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        content={<ChartTooltipContent hideLabel nameKey="name" />}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              ) : (
+                <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                  No expense data available for this period
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -461,30 +504,38 @@ export default function AnalyticsPage() {
               <CardDescription>Earnings by category {rangeDescription}.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{}} className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={incomePieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {incomePieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS.slice(2)[index % (COLORS.length - 2)]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      content={<ChartTooltipContent hideLabel nameKey="name" />}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              {incomePieData.length > 0 ? (
+                <ChartContainer config={{}} className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
+                      <Pie
+                        data={incomePieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={CustomLabel}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
+                      >
+                        {incomePieData.map((entry, index) => (
+                          <Cell key={`income-cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        content={<ChartTooltipContent hideLabel nameKey="name" />}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              ) : (
+                <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                  No income data available for this period
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

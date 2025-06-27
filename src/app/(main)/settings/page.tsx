@@ -134,7 +134,7 @@ export default function SettingsPage() {
         lastName: user.name?.split(' ')[1] || '',
         email: user.email,
       });
-      setAvatarPreview(user.avatarUrl);
+      setAvatarPreview(user.profilePictureUrl || '');
     }
   }, [user, profileForm]);
 
@@ -295,6 +295,7 @@ export default function SettingsPage() {
                             <SelectItem value="EUR">EUR (€)</SelectItem>
                             <SelectItem value="GBP">GBP (£)</SelectItem>
                             <SelectItem value="JPY">JPY (¥)</SelectItem>
+                            <SelectItem value="INR">INR (₹)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

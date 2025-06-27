@@ -14,6 +14,7 @@ import { fetcher, deleteData } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getIcon, getAccountIcon } from "@/lib/icon-map"
 import { useToast } from "@/hooks/use-toast"
+import { accountTypeMap } from "@/constants/label"
 
 function CategoriesSkeleton() {
   return (
@@ -103,7 +104,7 @@ export default function CategoriesPage() {
               <SelectContent>
                 <SelectItem value="all">All Accounts</SelectItem>
                 {accounts?.map((account: Account) => {
-                  const Icon = getAccountIcon(account.accountType)
+                  const Icon = getAccountIcon(accountTypeMap[account.accountType])
                   return (
                     <SelectItem key={account.accountId} value={account.accountId.toString()}>
                       <div className="flex items-center gap-2">

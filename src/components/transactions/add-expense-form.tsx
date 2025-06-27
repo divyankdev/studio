@@ -9,10 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Sparkles } from "lucide-react"
+import { CalendarIcon, Sparkles, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { useToast } from "@/hooks/use-toast"
 import { suggestCategoryAction } from "@/lib/actions"
 import React from "react"
 import type { Transaction, Account, Category, RecurringTransaction } from "@/lib/definitions"
@@ -21,6 +20,9 @@ import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
 import useSWR, { useSWRConfig } from "swr"
 import { fetcher, postData, putData } from "@/lib/api"
 import { getIcon, getAccountIcon } from "@/lib/icon-map"
+import { handleError, handleSuccess, handleApiCall } from "@/lib/error-handler"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+// import { ChevronDown } from "lucide-react"
 
 const formSchema = z
   .object({
@@ -57,9 +59,9 @@ type AddTransactionFormProps = {
 }
 
 export function AddTransactionForm({ transaction, onFinished }: AddTransactionFormProps) {
-  const { toast } = useToast()
   const { mutate } = useSWRConfig()
   const [isSuggesting, setIsSuggesting] = React.useState(false)
+  const [isRecurringOpen, setIsRecurringOpen] = React.useState(false)
 
   const { data: categories, error: cError } = useSWR<Category[]>("/categories", fetcher)
   const { data: accounts, error: aError } = useSWR<Account[]>("/accounts", fetcher)
@@ -101,14 +103,14 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
 
   const isRecurring = form.watch("isRecurring")
 
+  React.useEffect(() => {
+    setIsRecurringOpen(isRecurring)
+  }, [isRecurring])
+
   const handleSuggestCategory = async () => {
     const description = form.getValues("description")
     if (!description) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please enter a description first.",
-      })
+      handleError(null, "Please enter a description first.")
       return
     }
     setIsSuggesting(true)
@@ -118,114 +120,109 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
         const matchedCategory = categories?.find((c) => c.categoryName.toLowerCase() === result.category.toLowerCase())
         if (matchedCategory) {
           form.setValue("categoryId", matchedCategory.categoryId)
-          toast({
-            title: "Suggestion applied!",
-            description: `We've set the category to "${matchedCategory.categoryName}".`,
-          })
+          handleSuccess("Suggestion applied!", `We've set the category to "${matchedCategory.categoryName}".`)
         } else {
-          toast({
-            variant: "destructive",
-            title: "Suggestion not found",
-            description: `AI suggested "${result.category}", but it's not in your categories list.`,
-          })
+          handleError(null, `AI suggested "${result.category}", but it's not in your categories list.`)
         }
       } else if (result.error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.error,
-        })
+        handleError(null, result.error)
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred.",
-      })
+      handleError(error, "Failed to get category suggestion.")
     } finally {
       setIsSuggesting(false)
     }
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      if (values.isRecurring) {
-        // For recurring transactions
-        const recurringData = {
-          accountId: values.accountId,
-          categoryId: values.categoryId,
-          amount: values.amount,
-          frequency: values.frequency!,
-          nextDueDate: values.date.toISOString().split("T")[0],
-          description: values.description,
-          isActive: true,
-          transactionType: values.transactionType,
-        }
+    const isEdit = transaction?.transactionId || transaction?.recurringId
 
-        if (transaction?.recurringId) {
-          await putData(`/recurring-transactions/${transaction.recurringId}`, recurringData)
-        } else {
-          await postData("/recurring-transactions", recurringData)
-        }
-
-        mutate("/recurring-transactions")
-      } else {
-        // For regular transactions
-        const transactionData = {
-          accountId: values.accountId,
-          categoryId: values.categoryId,
-          amount: values.amount,
-          transactionType: values.transactionType,
-          description: values.description,
-          transactionDate: values.date.toISOString().split("T")[0],
-        }
-
-        if (transaction?.transactionId) {
-          await putData(`/transactions/${transaction.transactionId}`, transactionData)
-        } else {
-          await postData("/transactions", transactionData)
-        }
-
-        mutate("/transactions")
+    if (values.isRecurring) {
+      // For recurring transactions
+      const recurringData = {
+        accountId: values.accountId,
+        categoryId: values.categoryId,
+        amount: values.amount,
+        frequency: values.frequency!,
+        nextDueDate: values.date.toISOString().split("T")[0],
+        description: values.description,
+        isActive: true,
+        transactionType: values.transactionType,
+        ...(values.endDate && { endDate: values.endDate.toISOString().split("T")[0] }),
       }
 
-      toast({
-        title: transaction?.transactionId || transaction?.recurringId ? "Transaction Updated!" : "Transaction Added!",
-        description: `Saved "${values.description}".`,
-      })
-      onFinished?.()
-    } catch (e) {
-      console.error(e)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save transaction.",
-      })
+      const result = await handleApiCall(
+        () =>
+          transaction?.recurringId
+            ? putData(`/recurring-transactions/${transaction.recurringId}`, recurringData)
+            : postData("/recurring-transactions", recurringData),
+        isEdit ? "Recurring transaction updated!" : "Recurring transaction added!",
+        "Failed to save recurring transaction.",
+      )
+
+      if (result) {
+        mutate("/recurring-transactions")
+        onFinished?.()
+      }
+    } else {
+      // For regular transactions
+      const transactionData = {
+        accountId: values.accountId,
+        categoryId: values.categoryId,
+        amount: values.amount,
+        transactionType: values.transactionType,
+        description: values.description,
+        transactionDate: values.date.toISOString().split("T")[0],
+      }
+
+      const result = await handleApiCall(
+        () =>
+          transaction?.transactionId
+            ? putData(`/transactions/${transaction.transactionId}`, transactionData)
+            : postData("/transactions", transactionData),
+        isEdit ? "Transaction updated!" : "Transaction added!",
+        "Failed to save transaction.",
+      )
+
+      if (result) {
+        mutate("/transactions")
+        onFinished?.()
+      }
     }
+  }
+
+  // Handle loading and error states
+  if (cError || aError) {
+    handleError(cError || aError, "Failed to load form data.")
+    return <div className="p-4 text-center text-muted-foreground">Failed to load form data</div>
+  }
+
+  if (!categories || !accounts) {
+    return <div className="p-4 text-center text-muted-foreground">Loading...</div>
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
         <FormField
           control={form.control}
           name="transactionType"
           render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Transaction Type</FormLabel>
+            <FormItem className="space-y-2">
+              <FormLabel className="text-sm">Type</FormLabel>
               <FormControl>
                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="expense" />
                     </FormControl>
-                    <FormLabel className="font-normal">Expense</FormLabel>
+                    <FormLabel className="text-sm font-normal">Expense</FormLabel>
                   </FormItem>
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="income" />
                     </FormControl>
-                    <FormLabel className="font-normal">Income</FormLabel>
+                    <FormLabel className="text-sm font-normal">Income</FormLabel>
                   </FormItem>
                 </RadioGroup>
               </FormControl>
@@ -233,105 +230,112 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Coffee with friends" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Amount</FormLabel>
-              <FormControl>
-                <Input type="number" step="0.01" placeholder="0.00" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="accountId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Account</FormLabel>
-              <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Description</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an account" />
-                  </SelectTrigger>
+                  <Input placeholder="Coffee, groceries..." {...field} className="h-9" />
                 </FormControl>
-                <SelectContent>
-                  {accounts?.map((acc) => {
-                    const Icon = getAccountIcon(acc.accountType)
-                    return (
-                      <SelectItem key={acc.accountId} value={acc.accountId.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          {acc.accountName}
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>{isRecurring ? "Start Date" : "Date of Transaction"}</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Amount</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" placeholder="0.00" {...field} className="h-9" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="accountId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Account</FormLabel>
+                <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
                   <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                    >
-                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
                   </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  <SelectContent>
+                    {accounts?.map((acc) => {
+                      const Icon = getAccountIcon(acc.accountType)
+                      return (
+                        <SelectItem key={acc.accountId} value={acc.accountId.toString()}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            <span className="truncate">{acc.accountName}</span>
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">{isRecurring ? "Start Date" : "Date"}</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn("h-9 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                      >
+                        {field.value ? format(field.value, "MMM dd") : <span>Pick date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="categoryId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Category</FormLabel>
+              <FormLabel className="text-sm">Category</FormLabel>
               <div className="flex gap-2">
                 <Select onValueChange={(value) => field.onChange(Number(value))} value={field.value?.toString()}>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -341,7 +345,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                         <SelectItem key={cat.categoryId} value={cat.categoryId.toString()}>
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4" />
-                            {cat.categoryName}
+                            <span className="truncate">{cat.categoryName}</span>
                           </div>
                         </SelectItem>
                       )
@@ -351,10 +355,10 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size="sm"
                   onClick={handleSuggestCategory}
                   disabled={isSuggesting}
-                  aria-label="Suggest Category"
+                  className="h-9 px-3 bg-transparent"
                 >
                   <Sparkles className={cn("h-4 w-4", isSuggesting && "animate-spin")} />
                 </Button>
@@ -364,80 +368,95 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="isRecurring"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Is this a recurring transaction?</FormLabel>
-                <FormDescription>If checked, this will be added to your recurring payments.</FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-
-        {isRecurring && (
-          <>
+        <Collapsible open={isRecurringOpen} onOpenChange={setIsRecurringOpen}>
+          <CollapsibleTrigger asChild>
             <FormField
               control={form.control}
-              name="frequency"
+              name="isRecurring"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Frequency</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-medium">Recurring Transaction</FormLabel>
+                    <FormDescription className="text-xs">Set up automatic recurring payments</FormDescription>
+                  </div>
+                  <div className="flex items-center space-x-2">
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked)
+                          setIsRecurringOpen(!!checked)
+                        }}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="bi_weekly">Bi-Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="quarterly">Quarterly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", isRecurringOpen && "rotate-180")} />
+                  </div>
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="endDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>End Date (Optional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="frequency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">Frequency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick an end date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
                       </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="bi_weekly">Bi-Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">End Date (Optional)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "h-9 w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? format(field.value, "MMM dd, yyyy") : <span>No end date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
-        <Button type="submit" className="w-full">
-          {transaction?.transactionId ? "Save Changes" : "Add Transaction"}
+        <Button type="submit" className="w-full h-9">
+          {transaction?.transactionId || transaction?.recurringId ? "Update" : "Add"} Transaction
         </Button>
       </form>
     </Form>
