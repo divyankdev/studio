@@ -13,7 +13,7 @@ import { useSettings } from "@/contexts/settings-context"
 import { fetcher, deleteData } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getIcon } from "@/lib/icon-map"
-import { useToast } from "@/hooks/use-toast"
+import { handleError, handleApiCall } from "@/lib/error-handler"
 
 function BudgetSkeleton() {
   return (
@@ -63,33 +63,29 @@ function BudgetSkeleton() {
 }
 
 export default function BudgetPage() {
-  const { toast } = useToast()
   const { mutate } = useSWRConfig()
-  const { data: budgetsData, error: bError } = useSWR("/budgets", fetcher)
-  const { data: transactionsData, error: tError } = useSWR("/transactions", fetcher)
-  const { data: categoriesData, error: cError } = useSWR("/categories", fetcher)
+  const { data: budgets, error: bError } = useSWR("/budgets", fetcher)
+  const { data: transactions, error: tError } = useSWR("/transactions", fetcher)
+  const { data: categories, error: cError } = useSWR("/categories", fetcher)
 
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
   const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null)
   const { currency } = useSettings()
 
   // Handle different API response structures
-  const budgets = Array.isArray(budgetsData) ? budgetsData : budgetsData?.data || []
-  const transactions = Array.isArray(transactionsData) ? transactionsData : transactionsData?.data || []
-  const categories = Array.isArray(categoriesData) ? categoriesData : categoriesData?.data || []
+  // const budgets = Array.isArray(budgetsData) ? budgetsData : budgetsData?.data || []
+  // const transactions = Array.isArray(transactionsData) ? transactionsData : transactionsData?.data || []
+  // const categories = Array.isArray(categoriesData) ? categoriesData : categoriesData?.data || []
 
   const handleDelete = async (budgetId: string) => {
-    try {
-      await deleteData(`/budgets/${budgetId}`)
+    const result = await handleApiCall(
+      () => deleteData(`/budgets/${budgetId}`),
+      "Budget deleted successfully",
+      "Failed to delete budget",
+    )
+
+    if (result) {
       mutate("/budgets")
-      toast({ title: "Budget deleted successfully" })
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error deleting budget",
-        description: "Please try again.",
-      })
     }
   }
 
@@ -103,7 +99,7 @@ export default function BudgetPage() {
 
     const spendingByCategory = currentMonthTransactions.reduce(
       (acc: Record<string, number>, t: Transaction) => {
-        acc[t.categoryName] = (acc[t.categoryName] || 0) + t.amount
+        acc[t.categoryName] = (acc[t.categoryName] || 0) + Number(t.amount)
         return acc
       },
       {} as Record<string, number>,
@@ -118,8 +114,8 @@ export default function BudgetPage() {
     })
   }, [budgets, transactions])
 
-  const totalBudget = monthlyBudgetData.reduce((sum, b) => sum + b.amount, 0)
-  const totalSpent = monthlyBudgetData.reduce((sum, b) => sum + b.spent, 0)
+  const totalBudget = monthlyBudgetData.reduce((sum, b) => sum + Number(b.amount), 0)
+  const totalSpent = monthlyBudgetData.reduce((sum, b) => sum + Number(b.spent), 0)
   const totalProgress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
 
   const daysInMonth = getDaysInMonth(new Date())
@@ -133,7 +129,29 @@ export default function BudgetPage() {
       currency: currency,
     }).format(value)
 
-  if (bError || tError || cError) return <div>Failed to load data.</div>
+  // Handle error states
+  if (bError || tError || cError) {
+    const error = bError || tError || cError
+    handleError(error, "Failed to load budget data")
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-muted-foreground">Failed to load budget data</p>
+          <Button
+            onClick={() => {
+              mutate("/budgets")
+              mutate("/transactions")
+              mutate("/categories")
+            }}
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   if (!budgets || !transactions || !categories) return <BudgetSkeleton />
 
   return (
@@ -198,7 +216,7 @@ export default function BudgetPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {monthlyBudgetData.map((item) => {
+        {monthlyBudgetData.map((item: Budget) => {
           const categoryDetails = categories.find((c: Category) => c.categoryName === item.categoryName)
           const Icon = getIcon(categoryDetails?.icon)
           const progress = item.amount > 0 ? (item.spent / item.amount) * 100 : 0

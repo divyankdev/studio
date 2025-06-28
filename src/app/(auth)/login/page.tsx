@@ -40,6 +40,10 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  const handleGoogleLogin = () => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'; // Replace with your backend URL
+    window.location.href = `${backendUrl}/api/auth/google`;
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -90,11 +94,11 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Logging in..." : "Login"}
             </Button>
-            <a href="/api/auth/google" className="w-full">
-              <Button variant="outline" className="w-full" type="button" disabled={loading}>
+            {/* <a href="/api/auth/google" className="w-full"> */}
+              <Button variant="outline" className="w-full" type="button" disabled={loading} onClick={handleGoogleLogin}>
                 Login with Google
               </Button>
-            </a>
+            {/* </a> */}
           </form>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}

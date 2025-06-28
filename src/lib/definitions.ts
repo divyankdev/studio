@@ -89,7 +89,7 @@ export type Budget = {
   budgetId: number;
   userId: number;
   categoryId: number;
-  categoryName?: string;
+  categoryName: string;
   amount: number;
   spent: number;
   remaining: number;
