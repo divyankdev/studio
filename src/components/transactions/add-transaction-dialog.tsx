@@ -13,8 +13,8 @@ import { AddTransactionForm } from "./add-expense-form"
 import type { Transaction } from "@/lib/definitions"
 
 type AddTransactionDialogProps = {
-  transaction?: Transaction
-  children: React.ReactNode
+  transaction?: Partial<Transaction>
+  children?: React.ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -26,12 +26,16 @@ export function AddTransactionDialog({ transaction, children, open, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{transaction ? "Edit Transaction" : "Add a New Transaction"}</DialogTitle>
+          <DialogTitle>{transaction?.transactionId ? "Edit Transaction" : "Add a New Transaction"}</DialogTitle>
           <DialogDescription>
-          {transaction ? "Update your transaction details." : "Add a new income or expense transaction."}
+            {transaction?.transactionId
+              ? "Update your transaction details."
+              : transaction?.description
+              ? "Review the details scanned from your receipt."
+              : "Add a new income or expense transaction."}
           </DialogDescription>
         </DialogHeader>
         <div className="py-2">

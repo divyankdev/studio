@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button';
 import { columns } from '@/components/transactions/columns';
 import { DataTable } from '@/components/transactions/data-table';
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, ScanLine } from 'lucide-react';
 import React from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/api';
 import type { Transaction, Account, Category } from '@/lib/definitions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { scanReceiptAction } from '@/lib/actions';
 
 function TransactionsClientPageSkeleton() {
   return (
@@ -47,10 +49,78 @@ export default function TransactionsClientPage() {
   const { data: categories, error: cError } = useSWR<Category[]>('/categories', fetcher);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [activeTransaction, setActiveTransaction] = React.useState<Partial<Transaction> | undefined>(undefined);
+  
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const categoryFilter = searchParams.get('category');
   const accountFilter = searchParams.get('accountId');
 
+  const handleScanReceipt = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const { id: toastId } = toast({
+      title: 'Scanning Receipt...',
+      description: 'Please wait while we extract the details.',
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append('receipt', file);
+      const result = await scanReceiptAction(formData);
+
+      toast({ id: toastId, open: false });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      const receiptData = result.data!;
+      
+      const newTransactionData: Partial<Transaction> = {
+        description: receiptData.description,
+        amount: receiptData.amount,
+        transactionDate: receiptData.date,
+        transactionType: 'expense',
+      };
+
+      toast({
+        title: 'Receipt Scanned!',
+        description: 'Click here to create the transaction.',
+        duration: Infinity,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setActiveTransaction(newTransactionData);
+              setDialogOpen(true);
+            }}
+          >
+            Create
+          </Button>
+        ),
+      });
+
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Scan Failed',
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+      });
+    } finally {
+        if(event.target) {
+            event.target.value = '';
+        }
+    }
+  };
+  
   const initialFilters = React.useMemo(() => {
     const filters = [];
     if (categoryFilter) {
@@ -77,12 +147,38 @@ export default function TransactionsClientPage() {
             Manage your income and expenses.
           </p>
         </div>
-        <AddTransactionDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <Button>
+        <div className="flex items-center gap-2">
+           <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/*"
+          />
+          <Button variant="outline" onClick={handleScanReceipt}>
+            <ScanLine className="mr-2 h-4 w-4" />
+            Scan Receipt
+          </Button>
+          <Button onClick={() => {
+              setActiveTransaction(undefined);
+              setDialogOpen(true);
+            }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Transaction
           </Button>
-        </AddTransactionDialog>
+        </div>
       </div>
+
+       <AddTransactionDialog 
+        open={dialogOpen} 
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setActiveTransaction(undefined);
+          }
+        }}
+        transaction={activeTransaction}
+      />
+
       <DataTable
         columns={columns}
         data={transactions}
