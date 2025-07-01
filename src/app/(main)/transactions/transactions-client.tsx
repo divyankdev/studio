@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -6,14 +5,13 @@ import { columns } from '@/components/transactions/columns';
 import { DataTable } from '@/components/transactions/data-table';
 import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
 import { PlusCircle, ScanLine } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { fetcher } from '@/lib/api';
+import { fetcher, postData } from '@/lib/api';
 import type { Transaction, Account, Category } from '@/lib/definitions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { scanReceiptAction } from '@/lib/actions';
 
 function TransactionsClientPageSkeleton() {
   return (
@@ -43,6 +41,13 @@ function TransactionsClientPageSkeleton() {
   );
 }
 
+const POLL_INTERVAL = 3000; // 3 seconds
+
+const pollJobStatus = async (jobId: string) => {
+  const res = await fetcher(`/attachments/receipt-status?jobId=${jobId}`);
+  return res;
+};
+
 export default function TransactionsClientPage() {
   const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
   const { data: accounts, error: aError } = useSWR<Account[]>('/accounts', fetcher);
@@ -64,29 +69,107 @@ export default function TransactionsClientPage() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    const { id: toastId } = toast({
-      title: 'Scanning Receipt...',
-      description: 'Please wait while we extract the details.',
+  
+    console.log("Selected file:", file.name, file.type, file.size);
+  
+    const { id: toastId, update, dismiss } = toast({
+      title: 'Preparing Upload...',
+      description: 'Getting ready to upload your receipt.',
     });
-
+  
     try {
-      const formData = new FormData();
-      formData.append('receipt', file);
-      const result = await scanReceiptAction(formData);
+      console.log("Requesting signed URL...");
+      // 1. Get signed URL from backend
+      const signedUrlRes = await postData('/attachments/signed-url', { fileName: file.name, fileType: file.type });
+      console.log("Signed URL response:", signedUrlRes);
+      console.log("Signed URL data:", signedUrlRes.data);
+      
+      if (!signedUrlRes || signedUrlRes.status !== 'success') {
+        throw new Error(signedUrlRes?.message || 'Failed to get signed URL.');
+      }
+      const { signedUrl: uploadUrl, filePath, token } = signedUrlRes.data;
+      // const { signedUrl: uploadUrl, filePath, token } = signedUrlRes.data;
+      console.log("Destructured values - uploadUrl:", uploadUrl);
+      console.log("Destructured values - filePath:", filePath);
+      console.log("Destructured values - token:", token ? "Present" : "Missing");
 
-      toast({ id: toastId, open: false });
-
-      if (result.error) {
-        throw new Error(result.error);
+      console.log("About to call update...");
+      try {
+        update({
+          id: toastId,
+          title: 'Uploading Receipt...',
+          description: 'Please wait while we upload your receipt.',
+        });
+        console.log("Update call successful");
+      } catch (updateError) {
+        console.error("Update failed:", updateError);
       }
 
-      const receiptData = result.data!;
-      
+      console.log("Starting file upload...");
+// 2. Upload file to Supabase
+      try {
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+        
+        console.log("Upload response status:", uploadResponse.status, uploadResponse.statusText);
+        console.log("Upload response headers:", Object.fromEntries(uploadResponse.headers.entries()));
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error("Upload error details:", errorText);
+          throw new Error(`Failed to upload receipt. Status: ${uploadResponse.status} - ${errorText}`);
+        }
+        
+        console.log("Upload successful!");
+      } catch (uploadError) {
+        console.error("Upload fetch error:", uploadError);
+        throw uploadError;
+      }
+          // console.log('Uploaded res', uploadResponse)
+      update({
+        id: toastId,
+        title: 'Processing Receipt...',
+        description: 'Please wait while we extract the details.',
+      });
+
+      // 3. Process the receipt
+      const processRes = await postData('/attachments/process-receipt', { filePath });
+      dismiss();
+      if (!processRes || !processRes.success) {
+        throw new Error(processRes?.message || 'Failed to process receipt.');
+      }
+      const { jobId } = processRes.data;
+
+      // 4. Poll for job status
+      let jobStatus = null;
+      let attempts = 0;
+      while (true) {
+        await new Promise(res => setTimeout(res, POLL_INTERVAL));
+        attempts++;
+        const statusRes = await pollJobStatus(jobId);
+        if (!statusRes || !statusRes.status) throw new Error('Failed to get job status.');
+        if (statusRes.status === 'completed' || statusRes.status === 'failed') {
+          jobStatus = statusRes;
+          break;
+        }
+        if (attempts > 40) throw new Error('Processing timed out.');
+        update({ id: toastId, title: 'Processing Receipt...', description: `Still processing... (${attempts * 3}s)` });
+      }
+
+      if (jobStatus.status === 'failed') {
+        throw new Error(jobStatus.error || 'Receipt processing failed.');
+      }
+
+      const receiptData = jobStatus.extractedData;
       const newTransactionData: Partial<Transaction> = {
-        description: receiptData.description,
-        amount: receiptData.amount,
-        transactionDate: receiptData.date,
+        description: receiptData.merchantName || receiptData.description,
+        amount: receiptData.total || receiptData.amount,
+        transactionDate: receiptData.transactionDate || receiptData.date,
         transactionType: 'expense',
       };
 
@@ -107,17 +190,17 @@ export default function TransactionsClientPage() {
           </Button>
         ),
       });
-
     } catch (error) {
-       toast({
+      update({
+        id: toastId,
         variant: 'destructive',
         title: 'Scan Failed',
         description: error instanceof Error ? error.message : 'An unknown error occurred.',
       });
     } finally {
-        if(event.target) {
-            event.target.value = '';
-        }
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
   

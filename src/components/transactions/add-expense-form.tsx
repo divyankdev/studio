@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, Sparkles, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { suggestCategoryAction } from "@/lib/actions"
+// import { suggestCategoryAction } from "@/lib/actions"
 import React from "react"
 import type { Transaction, Account, Category, RecurringTransaction } from "@/lib/definitions"
 import { Checkbox } from "../ui/checkbox"
@@ -107,32 +107,32 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
     setIsRecurringOpen(isRecurring)
   }, [isRecurring])
 
-  const handleSuggestCategory = async () => {
-    const description = form.getValues("description")
-    if (!description) {
-      handleError(null, "Please enter a description first.")
-      return
-    }
-    setIsSuggesting(true)
-    try {
-      const result = await suggestCategoryAction(description)
-      if (result.category) {
-        const matchedCategory = categories?.find((c) => c.categoryName.toLowerCase() === result.category.toLowerCase())
-        if (matchedCategory) {
-          form.setValue("categoryId", matchedCategory.categoryId)
-          handleSuccess("Suggestion applied!", `We've set the category to "${matchedCategory.categoryName}".`)
-        } else {
-          handleError(null, `AI suggested "${result.category}", but it's not in your categories list.`)
-        }
-      } else if (result.error) {
-        handleError(null, result.error)
-      }
-    } catch (error) {
-      handleError(error, "Failed to get category suggestion.")
-    } finally {
-      setIsSuggesting(false)
-    }
-  }
+  // const handleSuggestCategory = async () => {
+  //   const description = form.getValues("description")
+  //   if (!description) {
+  //     handleError(null, "Please enter a description first.")
+  //     return
+  //   }
+  //   setIsSuggesting(true)
+  //   try {
+  //     const result = await suggestCategoryAction(description)
+  //     if (result.category) {
+  //       const matchedCategory = categories?.find((c) => c.categoryName.toLowerCase() === result.category.toLowerCase())
+  //       if (matchedCategory) {
+  //         form.setValue("categoryId", matchedCategory.categoryId)
+  //         handleSuccess("Suggestion applied!", `We've set the category to "${matchedCategory.categoryName}".`)
+  //       } else {
+  //         handleError(null, `AI suggested "${result.category}", but it's not in your categories list.`)
+  //       }
+  //     } else if (result.error) {
+  //       handleError(null, result.error)
+  //     }
+  //   } catch (error) {
+  //     handleError(error, "Failed to get category suggestion.")
+  //   } finally {
+  //     setIsSuggesting(false)
+  //   }
+  // }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const isEdit = transaction?.transactionId || transaction?.recurringId
@@ -356,7 +356,7 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleSuggestCategory}
+                  // onClick={handleSuggestCategory}
                   disabled={isSuggesting}
                   className="h-9 px-3 bg-transparent"
                 >
