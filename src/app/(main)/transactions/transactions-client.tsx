@@ -138,8 +138,10 @@ export default function TransactionsClientPage() {
       });
 
       // 3. Process the receipt
+      console.log("=== Starting receipt processing ===");
+      console.log("File path:", filePath);
       const processRes = await postData('/attachments/process-receipt', { filePath });
-      dismiss();
+      console.log("=== Process response ===", processRes);dismiss();
       if (!processRes || !processRes.success) {
         throw new Error(processRes?.message || 'Failed to process receipt.');
       }
