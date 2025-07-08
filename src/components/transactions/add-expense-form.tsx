@@ -84,6 +84,9 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
       frequency: isRecurringTransaction ? (transaction as RecurringTransaction).frequency : undefined,
     },
   })
+  const isValidDate = (date: any): date is Date => {
+    return date instanceof Date && !isNaN(date.getTime());
+  };
 
   React.useEffect(() => {
     if (transaction) {
@@ -304,7 +307,10 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                         variant={"outline"}
                         className={cn("h-9 w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                       >
-                        {field.value ? format(field.value, "MMM dd") : <span>Pick date</span>}
+                        {isValidDate(field.value) 
+                          ? format(field.value, "MMM dd") 
+                          : <span>Pick date</span>
+                        }
                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
                     </FormControl>
@@ -312,9 +318,13 @@ export function AddTransactionForm({ transaction, onFinished }: AddTransactionFo
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                      selected={isValidDate(field.value) ? field.value : undefined}
+                      onSelect={(date) => {
+                        field.onChange(date || undefined);
+                      }}
+                      disabled={(date) =>
+                        date > new Date() || date < new Date("1900-01-01")
+                      }
                       initialFocus
                     />
                   </PopoverContent>

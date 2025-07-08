@@ -1,21 +1,26 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { columns } from '@/components/transactions/columns';
-import { DataTable } from '@/components/transactions/data-table';
-import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
-import { PlusCircle, ScanLine } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { fetcher, postData } from '@/lib/api';
-import type { Transaction, Account, Category } from '@/lib/definitions';
+import { PlusCircle, ScanLine } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
+import { columns } from '@/components/transactions/columns';
+import { DataTable } from '@/components/transactions/data-table';
+import { AddTransactionDialog } from '@/components/transactions/add-transaction-dialog';
+
+import { fetcher, postData } from '@/lib/api';
+import type { Transaction, Account, Category } from '@/lib/definitions';
+
+const POLL_INTERVAL = 3000;
+
 function TransactionsClientPageSkeleton() {
   return (
-     <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
         <div>
           <Skeleton className="h-8 w-60 mb-2" />
@@ -25,28 +30,32 @@ function TransactionsClientPageSkeleton() {
       </div>
       <div className="space-y-4">
         <div className="flex items-center gap-2 flex-wrap">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-10 w-[260px]" />
-            <Skeleton className="h-10 w-[180px]" />
-            <Skeleton className="h-10 w-[180px]" />
-            <Skeleton className="h-10 w-[120px]" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-[260px]" />
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[120px]" />
         </div>
         <Skeleton className="h-96 w-full rounded-md border" />
         <div className="flex items-center justify-end space-x-2 py-4">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-16" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-16" />
         </div>
       </div>
     </div>
   );
 }
 
-const POLL_INTERVAL = 3000; // 3 seconds
-
-const pollJobStatus = async (jobId: string) => {
-  const res = await fetcher(`/attachments/receipt-status?jobId=${jobId}`);
-  return res;
-};
+// const pollJobStatus = async (jobId: string) => {
+//   try {
+//     const url = `/attachments/receipt-status?jobId=${jobId}`;
+//     const res = await fetcher(url);
+//     return res;
+//   } catch (error) {
+//     console.error('Poll request failed:', error);
+//     throw error;
+//   }
+// };
 
 export default function TransactionsClientPage() {
   const { data: transactions, error: tError } = useSWR<Transaction[]>('/transactions', fetcher);
@@ -55,7 +64,7 @@ export default function TransactionsClientPage() {
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [activeTransaction, setActiveTransaction] = React.useState<Partial<Transaction> | undefined>(undefined);
-  
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -66,11 +75,21 @@ export default function TransactionsClientPage() {
     fileInputRef.current?.click();
   };
 
+  const pollJobStatus = async (jobId: string) => {
+    try {
+      const url = `/attachments/receipt-status?jobId=${jobId}`;
+      const res = await fetcher(url);
+      console.log('Poll response:', res); // Add logging to debug
+      return res;
+    } catch (error) {
+      console.error('Poll request failed:', error);
+      throw error;
+    }
+  };
+  
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-  
-    console.log("Selected file:", file.name, file.type, file.size);
   
     const { id: toastId, update, dismiss } = toast({
       title: 'Preparing Upload...',
@@ -78,103 +97,130 @@ export default function TransactionsClientPage() {
     });
   
     try {
-      console.log("Requesting signed URL...");
-      // 1. Get signed URL from backend
-      const signedUrlRes = await postData('/attachments/signed-url', { fileName: file.name, fileType: file.type });
-      console.log("Signed URL response:", signedUrlRes);
-      console.log("Signed URL data:", signedUrlRes.data);
-      
+      const signedUrlRes = await postData('/attachments/signed-url', {
+        fileName: file.name,
+        fileType: file.type,
+      });
+  
       if (!signedUrlRes || signedUrlRes.status !== 'success') {
         throw new Error(signedUrlRes?.message || 'Failed to get signed URL.');
       }
-      const { signedUrl: uploadUrl, filePath, token } = signedUrlRes.data;
-      // const { signedUrl: uploadUrl, filePath, token } = signedUrlRes.data;
-      console.log("Destructured values - uploadUrl:", uploadUrl);
-      console.log("Destructured values - filePath:", filePath);
-      console.log("Destructured values - token:", token ? "Present" : "Missing");
-
-      console.log("About to call update...");
-      try {
-        update({
-          id: toastId,
-          title: 'Uploading Receipt...',
-          description: 'Please wait while we upload your receipt.',
-        });
-        console.log("Update call successful");
-      } catch (updateError) {
-        console.error("Update failed:", updateError);
+  
+      const { signedUrl: uploadUrl, filePath } = signedUrlRes.data;
+  
+      update({
+        id: toastId,
+        title: 'Uploading Receipt...',
+        description: 'Please wait while we upload your receipt.',
+      });
+  
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+  
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`Failed to upload receipt. ${errorText}`);
       }
-
-      console.log("Starting file upload...");
-// 2. Upload file to Supabase
-      try {
-        const uploadResponse = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        });
-        
-        console.log("Upload response status:", uploadResponse.status, uploadResponse.statusText);
-        console.log("Upload response headers:", Object.fromEntries(uploadResponse.headers.entries()));
-        
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("Upload error details:", errorText);
-          throw new Error(`Failed to upload receipt. Status: ${uploadResponse.status} - ${errorText}`);
-        }
-        
-        console.log("Upload successful!");
-      } catch (uploadError) {
-        console.error("Upload fetch error:", uploadError);
-        throw uploadError;
-      }
-          // console.log('Uploaded res', uploadResponse)
+  
       update({
         id: toastId,
         title: 'Processing Receipt...',
         description: 'Please wait while we extract the details.',
       });
-
-      // 3. Process the receipt
-      console.log("=== Starting receipt processing ===");
-      console.log("File path:", filePath);
+  
       const processRes = await postData('/attachments/process-receipt', { filePath });
-      console.log("=== Process response ===", processRes);dismiss();
-      if (!processRes || !processRes.success) {
+      console.log('Process response:', processRes); // Add logging
+  
+      // Fix: Check for consistent response structure
+      if (!processRes || (processRes.status !== 'success' && !processRes.success)) {
         throw new Error(processRes?.message || 'Failed to process receipt.');
       }
-      const { jobId } = processRes.data;
-
-      // 4. Poll for job status
+  
+      // Handle both possible response structures
+      const jobId = processRes.data?.jobId || processRes.jobId;
+      if (!jobId) throw new Error('No job ID returned.');
+  
       let jobStatus = null;
       let attempts = 0;
-      while (true) {
+      const maxAttempts = 40;
+  
+      while (attempts < maxAttempts) {
         await new Promise(res => setTimeout(res, POLL_INTERVAL));
         attempts++;
-        const statusRes = await pollJobStatus(jobId);
-        if (!statusRes || !statusRes.status) throw new Error('Failed to get job status.');
-        if (statusRes.status === 'completed' || statusRes.status === 'failed') {
-          jobStatus = statusRes;
-          break;
+  
+        try {
+          const statusRes = await pollJobStatus(jobId);
+          console.log('Status response:', statusRes); // Add logging
+          
+          // Fix: Handle different possible response structures
+          const currentStatus = statusRes?.status || statusRes?.data?.status;
+          
+          if (!currentStatus) {
+            console.warn('Invalid status response:', statusRes);
+            continue; // Continue polling instead of throwing error
+          }
+  
+          if (currentStatus === 'complete' || currentStatus === 'error') {
+            jobStatus = statusRes;
+            break;
+          }
+  
+          update({
+            id: toastId,
+            title: 'Processing Receipt...',
+            description: `Still processing... (${attempts * 3}s) - Status: ${currentStatus}`,
+          });
+        } catch (pollError: any) {
+          console.error('Polling error:', pollError);
+          if (attempts < 3) continue; // Give it a few more tries
+          throw new Error(`Polling failed: ${pollError.message}`);
         }
-        if (attempts > 40) throw new Error('Processing timed out.');
-        update({ id: toastId, title: 'Processing Receipt...', description: `Still processing... (${attempts * 3}s)` });
       }
-
-      if (jobStatus.status === 'failed') {
-        throw new Error(jobStatus.error || 'Receipt processing failed.');
+  
+      if (attempts >= maxAttempts) throw new Error('Processing timed out.');
+  
+      dismiss();
+  
+      // Fix: Handle different response structures for final status
+      const finalStatus = jobStatus?.status || jobStatus?.data?.status;
+      const errorMessage = jobStatus?.error || jobStatus?.data?.error;
+      let extractedData = jobStatus?.extractedData || jobStatus?.data?.extractedData || {};
+  
+      if (finalStatus === 'error') {
+        throw new Error(errorMessage || 'Receipt processing failed.');
       }
-
-      const receiptData = jobStatus.extractedData;
+  
+      // Parse extractedData if it's a string
+      // if (typeof extractedData === 'string') {
+      //   try {
+      //     extractedData = JSON.parse(extractedData);
+      //   } catch (parseError) {
+      //     console.error('Failed to parse extracted data:', parseError);
+      //     extractedData = {};
+      //   }
+      // }
+  
+      // Helper function to create a valid date or undefined
+      const createValidDate = (dateValue: any): Date | undefined => {
+        if (!dateValue) return undefined;
+        try {
+          const date = new Date(dateValue);
+          return isNaN(date.getTime()) ? undefined : date;
+        } catch {
+          return undefined;
+        }
+      };
+  
       const newTransactionData: Partial<Transaction> = {
-        description: receiptData.merchantName || receiptData.description,
-        amount: receiptData.total || receiptData.amount,
-        transactionDate: receiptData.transactionDate || receiptData.date,
+        description: extractedData.description || extractedData.merchantName || '',
+        amount: extractedData.amount || extractedData.total || undefined,
+        transactionDate: createValidDate(extractedData.transactionDate || extractedData.date),
         transactionType: 'expense',
       };
-
+  
       toast({
         title: 'Receipt Scanned!',
         description: 'Click here to create the transaction.',
@@ -192,12 +238,13 @@ export default function TransactionsClientPage() {
           </Button>
         ),
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Receipt processing error:', error);
       update({
         id: toastId,
         variant: 'destructive',
         title: 'Scan Failed',
-        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        description: error instanceof Error ? error.message : String(error),
       });
     } finally {
       if (event.target) {
@@ -205,7 +252,7 @@ export default function TransactionsClientPage() {
       }
     }
   };
-  
+
   const initialFilters = React.useMemo(() => {
     const filters = [];
     if (categoryFilter) {
@@ -228,12 +275,10 @@ export default function TransactionsClientPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Transactions</h1>
-          <p className="text-muted-foreground">
-            Manage your income and expenses.
-          </p>
+          <p className="text-muted-foreground">Manage your income and expenses.</p>
         </div>
         <div className="flex items-center gap-2">
-           <input
+          <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
@@ -245,21 +290,19 @@ export default function TransactionsClientPage() {
             Scan Receipt
           </Button>
           <Button onClick={() => {
-              setActiveTransaction(undefined);
-              setDialogOpen(true);
-            }}>
+            setActiveTransaction(undefined);
+            setDialogOpen(true);
+          }}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Transaction
           </Button>
         </div>
       </div>
 
-       <AddTransactionDialog 
-        open={dialogOpen} 
+      <AddTransactionDialog
+        open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
-          if (!open) {
-            setActiveTransaction(undefined);
-          }
+          if (!open) setActiveTransaction(undefined);
         }}
         transaction={activeTransaction}
       />
